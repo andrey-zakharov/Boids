@@ -1,0 +1,12 @@
+__kernel
+void decay_kernel(float alpha,
+                  float min_threshold,
+                  __global float *in,
+                  __global float *out)
+{
+    int index = get_global_id(0);
+    out[index] = alpha * in[index];
+    if (fabs(out[index]) <= min_threshold) {
+        out[index] = 0.0f;
+    }
+}
