@@ -7,6 +7,10 @@ import com.badlogic.gdx.graphics.g2d.Batch
 import com.badlogic.gdx.scenes.scene2d.Actor
 import me.apemanzilla.ktcl.CLCommandQueue
 import me.apemanzilla.ktcl.CLContext
+import me.apemanzilla.ktcl.cl10.KernelAccess
+import me.apemanzilla.ktcl.cl10.MemFlag
+import me.apemanzilla.ktcl.cl10.createBuffer
+import me.apemanzilla.ktcl.cl10.enqueueWriteBuffer
 import me.zakharov.ByteMatrix2d
 
 enum class CellType(val code: Byte, val color: Color) {
@@ -17,18 +21,21 @@ enum class CellType(val code: Byte, val color: Color) {
 }
 
 class Ground(
+        private val groundTexture: Texture,
         private val ctx: CLContext,
         private val cmd: CLCommandQueue,
-        val w: Int, val h: Int) : Actor() {
+        val w: Int, val h: Int
+) : Actor() {
 
 
     private val buff = ByteMatrix2d(w, h)
+    internal val clBuff = ctx.createBuffer(buff.buff, KernelAccess.ReadOnly)
     private val tex: Texture
 
     init {
-        val loadedTex = Texture("ground.png")
-        loadedTex.textureData.prepare()
-        val px = loadedTex.textureData.consumePixmap()
+
+        groundTexture.textureData.prepare()
+        val px = groundTexture.textureData.consumePixmap()
         val cpx = Pixmap(w, h, Pixmap.Format.RGBA8888).apply {
             filter = Pixmap.Filter.NearestNeighbour
             blending = Pixmap.Blending.None
@@ -55,14 +62,20 @@ class Ground(
             //println(y)
         }
         println(stats)
-        loadedTex.textureData.disposePixmap()
+        groundTexture.textureData.disposePixmap()
         tex = Texture(cpx)
+        cmd.enqueueWriteBuffer(buff.buff, clBuff)
     }
+//
+//    override  fun act(delta: Float) {
+//        super.act(delta)
+//
+//    }
 
     override fun draw(batch: Batch?, parentAlpha: Float) {
         super.draw(batch, parentAlpha)
         batch?.let {
-            it.draw(tex, 0f, 0f)
+            it.draw(tex, 0f, 0f, stage.width, stage.height)
         }
     }
 }

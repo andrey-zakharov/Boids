@@ -5,11 +5,9 @@
  */
 
 plugins {
-    // Apply the Kotlin JVM plugin to add support for Kotlin.
-    id("org.jetbrains.kotlin.jvm") version "1.3.70"
-
     // Apply the application plugin to add support for building a CLI application.
     application
+    kotlin("jvm") version "1.5.10"
 }
 
 repositories {
@@ -28,11 +26,6 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
 
     implementation(files("../ktcl/build/libs/ktcl-0.3.1.jar"))
-//    implementation("org.lwjgl:lwjgl:$lwjglVersion")
-//    implementation("org.lwjgl:lwjgl-opencl:$lwjglVersion")
-//    implementation("org.lwjgl:lwjgl:$lwjglVersion:natives-windows")
-//    implementation("org.lwjgl:lwjgl:$lwjglVersion:natives-linux")
-//    implementation("org.lwjgl:lwjgl:$lwjglVersion:natives-macos")
 
     implementation(platform("org.lwjgl:lwjgl-bom:$lwjglVersion"))
 
@@ -51,8 +44,16 @@ dependencies {
     runtimeOnly("org.lwjgl", "lwjgl-openal", classifier = lwjglNatives)
     runtimeOnly("org.lwjgl", "lwjgl-opengl", classifier = lwjglNatives)
     runtimeOnly("org.lwjgl", "lwjgl-stb", classifier = lwjglNatives)
+
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit")
+    //testImplementation(project(path=""))
+    testImplementation("com.badlogicgames.gdx", "gdx", gdxVersion)
+    testImplementation("com.badlogicgames.gdx", "gdx-backend-headless", gdxVersion)
+    testImplementation("com.badlogicgames.gdx","gdx-platform", gdxVersion, classifier = "natives-desktop")
+
+    //testImplementation("com.badlogicgames.gdx", "gdx-box2d", gdxVersion)
+    //testImplementation("com.badlogicgames.gdx","gdx-box2d-platform", gdxVersion, classifier = "natives-desktop")
 }
 
 application {

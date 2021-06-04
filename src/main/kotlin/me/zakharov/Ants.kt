@@ -1,10 +1,8 @@
 package me.zakharov.me.zakharov
 
-import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.Batch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
-import com.badlogic.gdx.math.MathUtils
 import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.scenes.scene2d.Actor
 import me.apemanzilla.ktcl.CLCommandQueue
@@ -21,19 +19,25 @@ import kotlin.random.Random
 class Ants(
         private val ctx: CLContext,
         private val cmd: CLCommandQueue,
-        val w: Int, val h: Int,
+        private val ground: Ground,
         private val pheromones: Pheromones
-        //private val ground:
 ) : Actor() {
-    private val total_count = 100
-    private val max_speed = 200.0f ///< per second
+    private val w = ground.w
+    private val h = ground.h
+
+    private val total_count = 1
+    private val max_speed = 10.0f ///< per second
     private val angle_degs = 30 ///< angle of detection for ant in degrees
     private val random = Random(Calendar.getInstance().timeInMillis)
     @ExperimentalUnsignedTypes
     private val maxqs = ceil(PI * max_speed * max_speed * angle_degs / 360).toUInt()
 
-    private val prog = ctx.createProgramWithSource( this::class.java.getResource("/ant.kernel").readText())
-            .also { it.build("-DMAX_QUEUE_SIZE=$maxqs") }
+    private val prog = ctx.createProgramWithSource( this::class.java.getResource("/ant.cl").readText())
+            .also {
+                it.build("-DMAX_QUEUE_SIZE=$maxqs")
+                println("build ants with MAX_QUEUE_SIZE=$maxqs")
+
+            }
     private val kernel = prog.createKernel("ant_kernel").also {
         //it.setArg(1, thres)
     }
@@ -75,8 +79,10 @@ class Ants(
         with(kernel) {
             var a = 0
             setArg( a++, delta)
+            setArg( a++, max_speed)
             setArg( a++, w)
             setArg( a++, h)
+            setArg( a++, ground.clBuff)
             setArg( a++, pheromones.clBuff)
             setArg( a++, posCLBuff)
             setArg( a++, velCLBuff)
@@ -100,7 +106,7 @@ class Ants(
         batch?.let {
             val p = posBuff.asFloatBuffer()
             for ( i in 0 until p.capacity() / 2 ) {
-                it.draw(tex, p[2*i], h - p[2*i+1])
+                it.draw(tex, p[2*i] * stage.width / w, (h - p[2*i+1]) * stage.height / h)
             }
         }
 

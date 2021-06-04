@@ -20,7 +20,7 @@ class Pheromones(
         private val height: Int
 ) : Actor() {
     private val alpha: Float = 0.75f // in 1 sec
-    private val thres: Float = 0.01f
+    private val thres: Float = 0.9f
 
 
     /// opencl stuff
@@ -84,12 +84,10 @@ class Pheromones(
                 for( x in 0 until pixmap.width) {
                     val idx = off + x * 4
                     //val c = (abs(buff[x, y]) * 0xff).toByte() // 0 .. 1?
-                    if ( buff[x, y] < 0 ) {
-                        this.putInt(Color.rgba8888(Color(0f, -buff[x, y], 0f, 1f)))
-                    } else if(buff[x, y] > 0) {
-                        this.putInt(idx, Color.rgba8888(0f, 0f, buff[x, y], 1f))
-                    } else {
-                        this.putInt(idx, Color.rgba8888(0f ,0f, 0f, 0f))
+                    when {
+                        buff[x, y] < 0 -> this.putInt(idx, Color.rgba8888(0f, -buff[x, y], 0f, 1f))
+                        buff[x, y] > 0 -> this.putInt(idx, Color.rgba8888(0f, 0f, buff[x, y], 1f))
+                        else -> this.putInt(idx, Color.rgba8888(0f ,0f, 0f, 0f))
                     }
                 }
             }
@@ -101,6 +99,6 @@ class Pheromones(
     override fun draw(batch: Batch?, parentAlpha: Float) {
         //batch?.draw(img, 0f, 0f)
         super.draw(batch, parentAlpha)
-        batch?.draw(tex, 0f, 0f)
+        batch?.draw(tex, 0f, 0f, stage.width, stage.height)
     }
 }

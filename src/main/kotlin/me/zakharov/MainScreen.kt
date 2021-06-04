@@ -28,15 +28,16 @@ class MainScreen(
         setToOrtho(false, w.toFloat(), h.toFloat())
     }
 
-    private val ground = Ground(ctx, cmd, w, h)
-    private val pher = Pheromones(ctx, cmd, w, h)
+    private val ground = Ground(Texture("ground.png"), ctx, cmd, 100, 100)
+    private val pher = Pheromones(ctx, cmd, ground.w, ground.h)
+    private val ants = Ants(ctx, cmd, ground, pher)
 
     val scene = Stage(FitViewport(w.toFloat(), h.toFloat(), camera), game.batch).apply {
         addActor(ground)
         addActor(pher)
-        addActor(Ants(ctx, cmd, w, h, pher))
+        addActor(ants)
     }
- 
+
     val random = Random(Calendar.getInstance().timeInMillis)
 
     val buf = ByteBuffer.allocate(w * h * 3).apply {
