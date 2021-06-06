@@ -1,6 +1,7 @@
 package me.zakharov.me.zakharov
 
 import com.badlogic.gdx.Gdx
+import com.badlogic.gdx.Input
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.Pixmap
@@ -12,6 +13,7 @@ import me.apemanzilla.ktcl.CLCommandQueue
 import me.apemanzilla.ktcl.CLContext
 import me.zakharov.Game
 import me.zakharov.Pheromones
+import me.zakharov.me.zakharov.events.PauseEvent
 import java.nio.ByteBuffer
 import java.util.*
 import kotlin.random.Random
@@ -31,11 +33,21 @@ class MainScreen(
     private val ground = Ground(Texture("ground.png"), ctx, cmd, 100, 100)
     private val pher = Pheromones(ctx, cmd, ground.w, ground.h)
     private val ants = Ants(ctx, cmd, ground, pher)
+    private var pause = false
 
     val scene = Stage(FitViewport(w.toFloat(), h.toFloat(), camera), game.batch).apply {
         addActor(ground)
         addActor(pher)
         addActor(ants)
+        ants.addListener {
+            when(it) {
+                is PauseEvent -> {
+                    pause = it.pause
+                    true
+                }
+                else -> false
+            }
+        }
     }
 
     val random = Random(Calendar.getInstance().timeInMillis)
@@ -67,7 +79,15 @@ class MainScreen(
         tex = Texture(pixmap)
     }
 
+    private fun processInput() {
+        if ( Gdx.input.isKeyJustPressed(Input.Keys.SPACE) ) {
+            pause = !pause
+        }
+    }
+
     override fun render(delta: Float) {
+
+        processInput()
         //camera.update()
         //game.batch.projectionMatrix = camera.combined
 
@@ -75,8 +95,10 @@ class MainScreen(
         //game.batch.draw(tex, 0f, 0f)
         //game.font.draw(game.batch, "Welcome!!! ", 0f, 50f)
         //game.font.draw(game.batch, "Tap anywhere to begin!", 100f, 100f)
+        if ( !pause ) {
+            scene.act()
+        }
 
-        scene.act()
         scene.draw()
 
         scene.batch.begin()

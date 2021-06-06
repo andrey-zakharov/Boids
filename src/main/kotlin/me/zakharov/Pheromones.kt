@@ -10,36 +10,22 @@ import me.apemanzilla.ktcl.CLCommandQueue
 import me.apemanzilla.ktcl.CLContext
 import me.apemanzilla.ktcl.cl10.*
 import java.util.*
-import kotlin.math.abs
-import kotlin.random.Random
 
 class Pheromones(
         private val ctx: CLContext,
         private val cmd: CLCommandQueue,
-        private val width: Int,
-        private val height: Int
+        internal val w: Int,
+        internal val h: Int
 ) : Actor() {
     private val alpha: Float = 0.75f // in 1 sec
-    private val thres: Float = 0.9f
+    private val thres: Float = 0.1f
 
 
     /// opencl stuff
     private val prog = ctx.createProgramWithSource( this::class.java.getResource("/decay.kernel").readText())
             .also { it.build() }
 
-    internal val buff = FloatMatrix2d(width, height).apply {
-        /*
-        val random = Random(Calendar.getInstance().timeInMillis)
-        for (x in 0 until this.width) {
-            for (y in 0 until this.height) {
-                this[x, y] = when {
-                    random.nextFloat() >= 0.9f -> -1.0f
-                    random.nextFloat() >= 0.95f -> 1.0f
-                    else -> 0f
-                }
-            }
-        }*/
-    }
+    internal val buff = FloatMatrix2d(w, h)
 
     internal val size = buff.size.toLong()
     internal fun updateFromCl() {
@@ -57,7 +43,7 @@ class Pheromones(
     }
     /// end opencl stuff
 
-    private val pixmap = Pixmap(width, height, Pixmap.Format.RGBA8888).apply {
+    private val pixmap = Pixmap(w, h, Pixmap.Format.RGBA8888).apply {
         filter = Pixmap.Filter.NearestNeighbour
     }
 

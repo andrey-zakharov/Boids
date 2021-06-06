@@ -10,11 +10,11 @@ import me.apemanzilla.ktcl.CLContext
 import me.apemanzilla.ktcl.cl10.*
 import me.zakharov.Const.FLOAT_SIZE
 import me.zakharov.Pheromones
+import me.zakharov.me.zakharov.events.PauseEvent
 import org.lwjgl.BufferUtils
 import java.util.*
 import kotlin.math.PI
 import kotlin.math.ceil
-import kotlin.random.Random
 
 class Ants(
         private val ctx: CLContext,
@@ -63,18 +63,22 @@ class Ants(
             p.put(i * 2, random.nextFloat() * w)
             p.put(i * 2 + 1, random.nextFloat() * h)
 
-            val vel = Vector2(max_speed, 0f).rotateRad(2*PI.toFloat()*random.nextFloat())
+            //val vel = Vector2(max_speed, 0f).rotateRad(2*PI.toFloat()*random.nextFloat())
             
-            v.put( i * 2, vel.x)
-            v.put( i * 2 + 1, vel.y)
+            //v.put( i * 2, vel.x)
+            //v.put( i * 2 + 1, vel.y)
+            v.put( i * 2, 0f)
+            v.put( i * 2 + 1, 0f)
+            //v.put( i * 2, 0f)
+            //v.put( i * 2 + 1, max_speed)
         }
     }
 
 
     override fun act(delta: Float) {
         super.act(delta)
-        val r = (max_speed * delta)
-        val s = ceil(PI * r * r * angle_degs / 360)
+        //val r = (max_speed * delta)
+        //val s = ceil(PI * r * r * angle_degs / 360)
 
         with(kernel) {
             var a = 0
@@ -98,6 +102,36 @@ class Ants(
         cmd.enqueueReadBuffer(outPosCLBuff, posBuff)
         cmd.enqueueReadBuffer(velCLBuff, velBuff)
         pheromones.updateFromCl()
+
+        var r = 0
+        for ( y in 9 until pheromones.h ) {
+            for (x in 0 until pheromones.w) {
+                if ( pheromones.buff[x, y] == -1f) r++
+            }
+        }
+        if ( r == 0 ) {
+            this.fire(PauseEvent(pause = true))
+            println("EMPTY RES")
+            val pos = posBuff.asFloatBuffer()
+            val vel = velBuff.asFloatBuffer()
+            val c = Vector2(pos[0], pos[1])
+            val origin = Vector2(pos[0].toInt() + 0.5f, pos[1].toInt() + 0.5f)
+            val v = Vector2(vel[0], vel[1]).setLength(1f)
+            val min_dot = kotlin.math.cos(23.0 * PI / 180f)
+
+            println("pos = ${pos[0]}x${pos[1]} ($origin)")
+            println("vel = ${vel[0]}x${vel[1]}")
+            val d = arrayOf(
+                    Vector2(-1f, -1f), Vector2(0f, -1f), Vector2(1f, -1f),
+                    Vector2(-1f, 0f)                       , Vector2(1f, 0f),
+                    Vector2(-1f, 1f), Vector2(0f, 1f), Vector2(1f, 1f)
+            )
+            for (dd in d) {
+                val np = Vector2(origin).add(dd).sub(origin).setLength(1f)
+                val dot = np.dot(v)
+                println("$dd dot = $dot < $min_dot = ${dot < min_dot}")
+            }
+        }
     }
 
     override fun draw(batch: Batch?, parentAlpha: Float) {

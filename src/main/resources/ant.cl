@@ -46,28 +46,20 @@ float2 wrap_bounds(float2 pos, uint w, uint h) {
     return ret;
 }
 
-__constant const float2 corners[4] = {
-	(float2)(0., 0.),
-	(float2)(1. - FLT_EPSILON, 0.),
-	(float2)(0., 1. - FLT_EPSILON),
-	(float2)(1. - FLT_EPSILON, 1. - FLT_EPSILON)
-};
-
 /// origin of ant, cp - current point, np - next point to check
-bool check_valid(const float2 origin, const float2 vel, const uint2 np) {
-    const float min_dot = cos(radians(10.));
-    const float2 fnp = convert_float2(np) + (float2)0.5;
-    const float nextlen = length( fnp - origin );
+bool check_valid(const float2 origin, const float2 vel, const float2 np) {
+    const float min_dot = cos(radians(23.));
+    const float nextlen = length( np - origin );
 
-	if ( dot( normalize( vel ), normalize( fnp - origin ) ) < min_dot ) return false;
+	if ( dot( normalize( vel ), normalize( np - origin ) ) < min_dot ) return false;
     if ( nextlen > length(vel) ) return false;
     return true;
 }
 
-__constant int2 d[8] = {
-	(int2)(-1, -1), (int2)(0, -1), (int2)(1, -1),
-	(int2)(-1,  0), 			   (int2)(1,  0), 
-	(int2)(-1, +1), (int2)(0, +1), (int2)(1, +1),
+__constant float2 d[8] = {
+	(float2)(-1., -1.), (float2)(0., -1.), (float2)(1., -1.),
+	(float2)(-1.,  0.), 			   (float2)(1.,  0.),
+	(float2)(-1., +1.), (float2)(0., +1.), (float2)(1., +1.),
 };
 
 __kernel
@@ -88,46 +80,87 @@ void ant_kernel(
 
     float2 pos = coords[index];
     float2 vel = velocities[index];
+    float accel = max_speed / 10.;
     // random fluctuation
     float r = (random(pos) - 0.5) * 0.17453292519943 /*10 deg*/;
-    r = 0.01;
+    //r = 0.01;
     vel = (float2)( vel.x * cos(r) - vel.y * sin(r), vel.x * sin(r) + vel.y * cos(r) );
+
 
     queue cells;
     queue_init(&cells);
     queue_push(&cells, convert_uint2(pos));
     uint2 origin = cells.queue[0];
+    float2 iorigin = convert_float2(origin) + (float2)0.5;
 
     while(!queue_empty(&cells)) {
         uint2 cp = queue_pop(&cells);
+        float2 fcp = convert_float2(cp) + (float2)0.5;
         
         // addition of this point
         if ( cp.x != origin.x && cp.y != origin.y ) {
         	if ( ground[ cp.x + cp.y * w] == 3 ) {
         		vel += convert_float2(origin - cp);
-        		//vel = (float2)(0., 0.);
+        		vel = (float2)(0., 0.);
         	}
             if ( pheromones[ cp.x + cp.y * w ] > 0 ) {
                 vel += 3.f / vel - convert_float2(cp - origin);
             }
         }
 
-        // neibours
+        // neighbours
+        // first check by min angle, but at least get one with max dot product
+        size_t added = 0;
+        float maxdot = -100.;
+        uint maxdoti = -1;
         for ( uint i = 0; i < sizeof(d)/sizeof(int2); i++ ) {
-        	float2 fupp = convert_float2(convert_int2(cp) + d[i]) + (float2)(0.5f, 0.5f);
-            uint2 upp = convert_uint2(wrap_bounds(fupp, w, h));
-            
-            if (check_valid(pos, vel, upp) && !check_queued(&cells, upp)) {
-            	pheromones[(int)upp.x + (int)upp.y*w] = -1.0f;
+        	float2 fupp = fcp + d[i];
+            uint2 upp = convert_uint2(fupp);
+
+            if (check_valid(iorigin, vel, fupp) && !check_queued(&cells, upp)) {
+            	// debug
+            	uint2 debug = convert_uint2(wrap_bounds(fupp, w, h));
+            	pheromones[(int)debug.x + (int)debug.y*w] = -1.0f;
                 queue_push(&cells, upp);
+                added ++;
+            }
+
+            float d = dot( normalize( vel ), normalize( fupp - iorigin ) );
+            if ( d > maxdot ) {
+                maxdot = d;
+                maxdoti = i;
             }
         }
+
+        /*if ( added == 0 ) {
+            uint2 last_chance = convert_uint2(fcp + d[maxdoti]);
+            if ( length (last_change - fcp) < length(vel) ) {
+                pheromones[(int)last_chance.x + (int)last_chance.y * w] = -1.0f;
+                queue_push(&cells, last_chance);
+            }
+        }*/
+
+
     }
 
     pheromones[(int)pos.x + (int)pos.y*w] = 1.0f;
 
 
-    velocities[index] = normalize(vel) * max_speed;
+
+    float len = length(vel);
+    if (len == 0) {
+        // add random length rotated vector
+        float2 r = (float2)(0., accel);
+        float a = random(r) * M_PI * 2;
+        r = (float2)(r.x * cos(a) - r.y * sin(a), r.x * sin(a) + r.y * cos(a));
+        vel += r;
+    } else if (len < max_speed) {
+        // accelerate
+        vel += normalize(vel) * accel;
+    } else if (len > max_speed) {
+        vel = normalize(vel) * max_speed;
+    }
+    velocities[index] = vel;
 
     out[index] = wrap_bounds(pos + velocities[index] * delta, w, h);
 }
