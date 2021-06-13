@@ -8,11 +8,12 @@ import com.badlogic.gdx.scenes.scene2d.Actor
 import me.apemanzilla.ktcl.CLCommandQueue
 import me.apemanzilla.ktcl.CLContext
 import me.apemanzilla.ktcl.cl10.KernelAccess
-import me.apemanzilla.ktcl.cl10.MemFlag
-import me.apemanzilla.ktcl.cl10.createBuffer
 import me.apemanzilla.ktcl.cl10.enqueueWriteBuffer
-import me.zakharov.ByteMatrix2d
+import me.zakharov.createByteMatrix2d
+import me.zakharov.share
 
+//@ExportTo(opencl)
+// enum CellType { empty = 0, nest = 1, food = 2, obstacle = 3 } ;
 enum class CellType(val code: Byte, val color: Color) {
     Empty(0x0, Color.CLEAR),
     Nest(0x1, Color.BLUE),
@@ -28,8 +29,8 @@ class Ground(
 ) : Actor() {
 
 
-    private val buff = ByteMatrix2d(w, h)
-    internal val clBuff = ctx.createBuffer(buff.buff, KernelAccess.ReadOnly)
+    private val m = createByteMatrix2d(w, h)
+    internal val shared = ctx.share(m.wrapped, KernelAccess.ReadOnly)
     private val tex: Texture
 
     init {
@@ -54,7 +55,7 @@ class Ground(
                     (c.r > c.g && c.r > c.b) -> CellType.Obstacle
                     else -> CellType.Empty
                 }
-                buff[x, y] = cellType.code
+                m[x, y] = cellType.code
                 cpx.drawPixel(x, y, Color.rgba8888(cellType.color))
                 stats[cellType] = stats.getOrDefault(cellType, 0) + 1
                 //print(buff[x, y])
@@ -64,7 +65,7 @@ class Ground(
         println(stats)
         groundTexture.textureData.disposePixmap()
         tex = Texture(cpx)
-        cmd.enqueueWriteBuffer(buff.buff, clBuff)
+        shared.upload(cmd)
     }
 //
 //    override  fun act(delta: Float) {

@@ -62,46 +62,62 @@ __constant float2 d[8] = {
 	(float2)(-1., +1.), (float2)(0., +1.), (float2)(1., +1.),
 };
 
+__constant const size_t StateEmpty = 0;
+__constant const size_t StateFull = 0;
+enum State { empty = 0, full = 1 } ;
+enum CellType { cellEmpty = 0, nest = 1, food = 2, obstacle = 3 } ;
+
 __kernel
 void ant_kernel(
     float delta,
     float max_speed,
     uint w,
     uint h,
-    __global __read_only uchar* ground,
-    __global float *pheromones,
-    __global float2 *coords,
-    __global float2 *velocities,
-    __global float2 *out,
-    __global float *outPheromones
-    )
+    __global __read_only uchar*     ground,
+    __global float*     pheromones,
+    __global float2*    coords,
+    __global float2*    velocities,
+    __global uchar*     state
+    //__global float2*    out
+)
 {
-    int index = get_global_id(0);
+    float accel = max_speed / 10.;
 
+    int index = get_global_id(0);
+    // test 1
+    // coords[index] = wrap_bounds(coords[index] + (float2)(1.0, 1.0), w, h);
+    //velocities[index] = velocities[index]  + max_speed;
+    //    return;
     float2 pos = coords[index];
     float2 vel = velocities[index];
-    float accel = max_speed / 10.;
+    uchar out_state = state[index];
+    bool emp = state[index] == 0;
+
     // random fluctuation
     float r = (random(pos) - 0.5) * 0.17453292519943 /*10 deg*/;
     //r = 0.01;
     vel = (float2)( vel.x * cos(r) - vel.y * sin(r), vel.x * sin(r) + vel.y * cos(r) );
 
-
     queue cells;
     queue_init(&cells);
     queue_push(&cells, convert_uint2(pos));
     uint2 origin = cells.queue[0];
+    // and center of current cell
     float2 iorigin = convert_float2(origin) + (float2)0.5;
+    size_t obstacles_found = 0;
 
+    /// BFS
     while(!queue_empty(&cells)) {
         uint2 cp = queue_pop(&cells);
         float2 fcp = convert_float2(cp) + (float2)0.5;
         
         // addition of this point
         if ( cp.x != origin.x && cp.y != origin.y ) {
-        	if ( ground[ cp.x + cp.y * w] == 3 ) {
-        		vel += convert_float2(origin - cp);
-        		vel = (float2)(0., 0.);
+
+        	if ( ground[ cp.x + cp.y * w] == obstacle ) {
+                obstacles_found++;
+        		vel += convert_float2(origin - cp) * (float2)(delta * 5.0);
+        		//vel = (float2)(0., 0.);
         	}
             if ( pheromones[ cp.x + cp.y * w ] > 0 ) {
                 vel += 3.f / vel - convert_float2(cp - origin);
@@ -143,16 +159,16 @@ void ant_kernel(
 
     }
 
+    out_state = obstacles_found ? obstacle : empty;
+
     pheromones[(int)pos.x + (int)pos.y*w] = 1.0f;
-
-
 
     float len = length(vel);
     if (len == 0) {
         // add random length rotated vector
         float2 r = (float2)(0., accel);
-        float a = random(r) * M_PI * 2;
-        r = (float2)(r.x * cos(a) - r.y * sin(a), r.x * sin(a) + r.y * cos(a));
+        float a = random(pos+vel) * M_PI * 2;
+        r = (float2)( r.y * sin(a), r.y * cos(a));
         vel += r;
     } else if (len < max_speed) {
         // accelerate
@@ -160,7 +176,8 @@ void ant_kernel(
     } else if (len > max_speed) {
         vel = normalize(vel) * max_speed;
     }
-    velocities[index] = vel;
 
-    out[index] = wrap_bounds(pos + velocities[index] * delta, w, h);
+    velocities[index] = vel;
+    coords[index] = wrap_bounds(pos + velocities[index] * delta, w, h);
+    state[index] = out_state;
 }

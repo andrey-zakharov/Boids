@@ -8,6 +8,8 @@ import com.badlogic.gdx.scenes.scene2d.Actor
 import me.apemanzilla.ktcl.CLCommandQueue
 import me.apemanzilla.ktcl.CLContext
 import me.apemanzilla.ktcl.cl10.*
+import me.zakharov.Const.BOOL_SIZE
+import me.zakharov.Const.FLOAT2_SIZE
 import me.zakharov.Const.FLOAT_SIZE
 import me.zakharov.Pheromones
 import me.zakharov.me.zakharov.events.PauseEvent
@@ -22,6 +24,7 @@ class Ants(
         private val ground: Ground,
         private val pheromones: Pheromones
 ) : Actor() {
+
     private val w = ground.w
     private val h = ground.h
 
@@ -42,16 +45,19 @@ class Ants(
         //it.setArg(1, thres)
     }
 
-    private val posBuff = BufferUtils.createByteBuffer(total_count * FLOAT_SIZE * 2)
-    private val velBuff = BufferUtils.createByteBuffer(total_count * FLOAT_SIZE * 2)
+    /// entities
+    private val posBuff = BufferUtils.createByteBuffer(total_count * FLOAT2_SIZE)
+    private val velBuff = BufferUtils.createByteBuffer(total_count * FLOAT2_SIZE)
+    /** 0 - empty, looking for food, 1 - with food */
+    private val stateBuff = BufferUtils.createByteBuffer(total_count * BOOL_SIZE)
 
     private val posCLBuff = ctx.createBuffer(posBuff)
     private val velCLBuff = ctx.createBuffer(velBuff)
-    private val outPosCLBuff = ctx.createBuffer(posBuff.capacity().toLong())
-    private val outVelCLBuff = ctx.createBuffer(velBuff.capacity().toLong())
-    private val outPheromones = ctx.createBuffer(pheromones.size)
+    private val stateCLBuff = ctx.createBuffer(stateBuff)
+    //private val outPosCLBuff = ctx.createBuffer(posBuff.capacity().toLong())
+    //private val outPheromones = ctx.createBuffer(pheromones.size)
 
-    private val shapeRenderer = ShapeRenderer()
+    //private val shapeRenderer = ShapeRenderer()
     private val tex = Texture("ant.png")
 
     init {
@@ -86,22 +92,35 @@ class Ants(
             setArg( a++, max_speed)
             setArg( a++, w)
             setArg( a++, h)
-            setArg( a++, ground.clBuff)
-            setArg( a++, pheromones.clBuff)
+            setArg( a++, ground.shared.remoteBuff)
+            setArg( a++, pheromones.shared.remoteBuff)
             setArg( a++, posCLBuff)
             setArg( a++, velCLBuff)
-            setArg( a++, outPosCLBuff)
-            setArg( a++, outPheromones)
+            setArg( a++, stateCLBuff)
+//            setArg( a++, outPosCLBuff)
         }
 
-        cmd.enqueueWriteBuffer(posBuff, posCLBuff)
-        cmd.enqueueWriteBuffer(velBuff, velCLBuff)
+        /// beforeNDRun()
+
+        with(cmd) {
+            enqueueWriteBuffer(posBuff, posCLBuff)
+            enqueueWriteBuffer(velBuff, velCLBuff)
+            enqueueWriteBuffer(from = stateBuff, to = stateCLBuff)
+        }
+
+
+
         cmd.enqueueNDRangeKernel(kernel, total_count.toLong())
         cmd.finish()
 
-        cmd.enqueueReadBuffer(outPosCLBuff, posBuff)
-        cmd.enqueueReadBuffer(velCLBuff, velBuff)
-        pheromones.updateFromCl()
+        /// afterNDRun
+        with(cmd) {
+            enqueueReadBuffer(from = posCLBuff, to = posBuff)
+            enqueueReadBuffer(from = velCLBuff, to = velBuff)
+            enqueueReadBuffer(from = stateCLBuff, to = stateBuff)
+        }
+        // kernel's flows
+        pheromones.shared.download(cmd)
 
         var r = 0
         for ( y in 9 until pheromones.h ) {
@@ -110,8 +129,8 @@ class Ants(
             }
         }
         if ( r == 0 ) {
-            this.fire(PauseEvent(pause = true))
-            println("EMPTY RES")
+            //this.fire(PauseEvent(pause = true))
+            println("EMPTY SCAN")
             val pos = posBuff.asFloatBuffer()
             val vel = velBuff.asFloatBuffer()
             val c = Vector2(pos[0], pos[1])

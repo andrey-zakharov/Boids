@@ -22,24 +22,16 @@ class Pheromones(
 
 
     /// opencl stuff
-    private val prog = ctx.createProgramWithSource( this::class.java.getResource("/decay.kernel").readText())
+    private val prog = ctx.createProgramWithSource( this::class.java.getResource("/decay.kernel").readText() )
             .also { it.build() }
 
-    internal val buff = FloatMatrix2d(w, h)
-
-    internal val size = buff.size.toLong()
-    internal fun updateFromCl() {
-        buff.read(cmd, clOutBuff)
-    }
-
-    private val clInBuff = ctx.createBuffer(buff.size.toLong())
-    private val clOutBuff = ctx.createBuffer(buff.size.toLong())
-    internal val clBuff = clOutBuff
+    internal val buff = createFloatMatrix2d(w, h)
+    internal val shared = ctx.share(buff.wrapped)
 
     private val kernel = prog.createKernel("decay_kernel").apply {
         setArg(1, thres)
-        setArg(2, clInBuff)
-        setArg(3, clOutBuff)
+        setArg(2, shared.remoteBuff)
+        setArg(3, shared.remoteBuff)
     }
     /// end opencl stuff
 
@@ -57,23 +49,25 @@ class Pheromones(
 
         }
 
-        buff.write(cmd, clInBuff)
+        shared.upload(cmd)
 
         cmd.enqueueNDRangeKernel(kernel, buff.width*buff.height.toLong())
         cmd.finish()
 
-        buff.read(cmd, clOutBuff)
+        shared.download(cmd)
 
+        // could we just pass pixmap.pixels.buff directly to cl and read back?
         pixmap.pixels.apply {
             for (y in 0 until pixmap.height) {
                 val off = y * pixmap.width * 4
                 for( x in 0 until pixmap.width) {
                     val idx = off + x * 4
                     //val c = (abs(buff[x, y]) * 0xff).toByte() // 0 .. 1?
+                    // its just a tranformation .map { colors
                     when {
                         buff[x, y] < 0 -> this.putInt(idx, Color.rgba8888(0f, -buff[x, y], 0f, 1f))
                         buff[x, y] > 0 -> this.putInt(idx, Color.rgba8888(0f, 0f, buff[x, y], 1f))
-                        else -> this.putInt(idx, Color.rgba8888(0f ,0f, 0f, 0f))
+                        //else -> true//this.putInt(idx, Color.rgba8888(1f ,1f, 1f, 0.2f))
                     }
                 }
             }
