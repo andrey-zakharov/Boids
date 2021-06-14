@@ -121,11 +121,25 @@ class Ants(
         }
         // kernel's flows
         pheromones.shared.download(cmd)
+        debugScanning()
+        debugObstacles()
 
+    }
+
+    fun debugObstacles() {
+        for ( i in 0 until total_count) {
+            if ( stateBuff[i] > 0 ) {
+                println("$i has ${stateBuff[i]} obstacles")
+            }
+
+        }
+    }
+
+    fun debugScanning() {
         var r = 0
         for ( y in 9 until pheromones.h ) {
             for (x in 0 until pheromones.w) {
-                if ( pheromones.buff[x, y] == -1f) r++
+                if ( pheromones.m[x, y] == -1f) r++
             }
         }
         if ( r == 0 ) {

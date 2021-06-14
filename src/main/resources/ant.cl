@@ -114,14 +114,14 @@ void ant_kernel(
         // addition of this point
         if ( cp.x != origin.x && cp.y != origin.y ) {
 
-        	if ( ground[ cp.x + cp.y * w] == obstacle ) {
+        	if ( ground[ cp.x + cp.y * w ] == obstacle ) {
                 obstacles_found++;
-        		vel += convert_float2(origin - cp) * (float2)(delta * 5.0);
+        		vel += convert_float2(origin - cp) * (float2)(delta * 2.0);
         		//vel = (float2)(0., 0.);
         	}
-            if ( pheromones[ cp.x + cp.y * w ] > 0 ) {
+            /*if ( pheromones[ cp.x + cp.y * w ] > 0 ) {
                 vel += 3.f / vel - convert_float2(cp - origin);
-            }
+            }*/
         }
 
         // neighbours
@@ -159,7 +159,7 @@ void ant_kernel(
 
     }
 
-    out_state = obstacles_found ? obstacle : empty;
+    out_state = obstacles_found; // ? obstacle : empty;
 
     pheromones[(int)pos.x + (int)pos.y*w] = 1.0f;
 

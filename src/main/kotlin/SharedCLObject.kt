@@ -16,9 +16,12 @@ interface SharedBuffer {
     fun download(cmd: CLCommandQueue)
 }
 
+
+//require
 fun CLContext.share(buff: ByteBuffer, memFlag: MemFlag = KernelAccess.ReadWrite) = object : SharedBuffer {
     override val buff = buff
     val bytesSize = buff.capacity()
+    init { require(bytesSize > 0) }
     override val remoteBuff = createBuffer(bytesSize.toLong(), memFlag)
     override fun upload(cmd: CLCommandQueue) {
         buff.enqueueWrite(cmd, remoteBuff)
@@ -41,33 +44,26 @@ fun ByteBuffer.enqueueRead( cmd: CLCommandQueue, remoteBuff: CLBuffer) {
     rewind()
 }
 
-
-abstract class Matrix2d<T>(val width: Int, val height: Int) {
+abstract class Matrix2d<T>(val width: Int, val height: Int, val elementSize: Int) {
+    val buff: ByteBuffer = BufferUtils.createByteBuffer(width * height * elementSize)
     abstract operator fun get(x: Int, y: Int): T
     abstract operator fun set(x: Int, y: Int, v: T)
 }
-abstract class MatrixByteBuffer<T>(val wrapped: ByteBuffer, width: Int, height: Int) : Matrix2d<T>(width, height)
 
-fun createFloatMatrix2d(width: Int, height: Int): MatrixByteBuffer<Float> {
-    val bytesSize: Int = FLOAT_SIZE * width * height
-    return BufferUtils.createByteBuffer(bytesSize).asFloatMatrix2d(width, height)
+fun createFloatMatrix2d(width: Int, height: Int) = object : Matrix2d<Float>(width, height, FLOAT_SIZE) {
+    override operator fun get(x: Int, y: Int) = buff.asFloatBuffer().get(y * width + x)
+    override operator fun set(x: Int, y: Int, v: Float) { buff.asFloatBuffer().put(y * width + x, v) }
 }
-fun createByteMatrix2d(width: Int, height: Int): MatrixByteBuffer<Byte> {
-    val bytesSize: Int = width * height
-    return BufferUtils.createByteBuffer(bytesSize).asByteMatrix2d(width, height)
+
+fun createByteMatrix2d(width: Int, height: Int) = object : Matrix2d<Byte>(width, height, 1) {
+    override operator fun get(x: Int, y: Int) = buff.get(y * width + x)
+    override operator fun set(x: Int, y: Int, v: Byte) { buff.put(y * width + x, v) }
 }
 
 // TBD sampler
 @Suppress("CAST_NEVER_SUCCEEDS")
-fun ByteBuffer.asFloatMatrix2d(width: Int, height: Int): MatrixByteBuffer<Float> =
-        object : MatrixByteBuffer<Float>(this, width, height) {
-    override operator fun get(x: Int, y: Int) = asFloatBuffer().get(y * width + x)
-    override operator fun set(x: Int, y: Int, v: Float) { asFloatBuffer().put(y * width + x, v) }
-}
+fun ByteBuffer.asFloatMatrix2d(width: Int, height: Int): Matrix2d<Float> = createFloatMatrix2d(width, height)
+
 
 @Suppress("CAST_NEVER_SUCCEEDS")
-fun ByteBuffer.asByteMatrix2d(width: Int, height: Int) : MatrixByteBuffer<Byte> =
-        object : MatrixByteBuffer<Byte>(this, width, height) {
-    override operator fun get(x: Int, y: Int) = get(y * width + x)
-    override operator fun set(x: Int, y: Int, v: Byte) { put(y * width + x, v) }
-}
+fun ByteBuffer.asByteMatrix2d(width: Int, height: Int) : Matrix2d<Byte> = createByteMatrix2d(width, height)

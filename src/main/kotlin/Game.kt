@@ -10,22 +10,39 @@ import me.apemanzilla.ktcl.CLDevice
 import me.apemanzilla.ktcl.CLException
 import me.apemanzilla.ktcl.cl10.*
 import me.zakharov.me.zakharov.MainScreen
+import kotlin.time.Duration
+
+val d: (m: Any) -> Unit = ::println
+
+@kotlin.time.ExperimentalTime
+fun Duration.toString() {
+    //locale etc.
+    "${this.inWholeMilliseconds} ms"
+}
 
 class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
     val batch by lazy { SpriteBatch() }
     val font by lazy { BitmapFont() }
 
-    private val ctx = device.createContext()
-    private val cmd = device.createCommandQueue(ctx)
+    private val ctx by lazy { device.createContext() }
+    private val cmd by lazy { device.createCommandQueue(ctx) }
+    // Kernel(batchND).apply {
+    //  load(Resource("saxpy.kernel"))
+    //  allocBuffersFromArgs?
+    // }
+    //
     val saxpyKernel = Saxpy(ctx, cmd)
 
     val maxItemsX = device.maxWorkItemSizes[0]
     val maxItemsY = device.maxWorkItemSizes[1]//, maxItemsZ)
 
     override fun create() {
-        addScreen(MainScreen(this, ctx, cmd))
-        setScreen<MainScreen>()
-        super.create()
+        val duration = kotlin.system.measureTimeMillis {
+            addScreen(MainScreen(this, ctx, cmd))
+            setScreen<MainScreen>()
+            super.create()
+        }
+        d("Created Game: $duration")
     }
 
 //    fun run() {
@@ -44,18 +61,15 @@ fun main() {
 
 
     try {
-        println(getPlatforms())
+        println("Found platforms = ${getPlatforms()}")
         assert(getPlatforms().isNotEmpty())
         val plat = getPlatforms()[0]
         plat.getDefaultDevice()?.let {
-            println(it.extensions)
-            println(it.image2dMaxHeight)
-            println(it.image2dMaxWidth)
-            println(it.maxComputeUnits)
-
-            println(it.maxConstantArgs)
-            println(it.maxWorkGroupSize)
-            println(it.maxWorkItemDimensions)
+            println("extensions ${it.extensions.joinToString("\n - ")}")
+            println("image2dMaxDims ${it.image2dMaxHeight}x${it.image2dMaxWidth}")
+            println("max compute units ${it.maxComputeUnits}")
+            println("max const args ${it.maxConstantArgs}")
+            println("workgroup maxes size=${it.maxWorkGroupSize}, item dims=${it.maxWorkItemDimensions}")
 
             val config = Lwjgl3ApplicationConfiguration().apply {
                 setTitle("Ants")

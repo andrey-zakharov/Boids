@@ -28,12 +28,18 @@ class Ground(
         val w: Int, val h: Int
 ) : Actor() {
 
+    val d: (m: Any) -> Unit = ::println
 
     private val m = createByteMatrix2d(w, h)
-    internal val shared = ctx.share(m.wrapped, KernelAccess.ReadOnly)
+    internal val shared = ctx.share(m.buff, KernelAccess.ReadOnly)
     private val tex: Texture
 
+    // stats field
+    private val _stats = mutableMapOf<CellType, Int>()
+    internal val stats: Map<CellType, Int> = _stats// shared flow
+
     init {
+        d("init ground")
 
         groundTexture.textureData.prepare()
         val px = groundTexture.textureData.consumePixmap()
@@ -44,8 +50,6 @@ class Ground(
         }
 
         var c = Color()
-        val stats = mutableMapOf<CellType, Int>()
-
         for (y in 0 until h) {
             for ( x in 0 until w) {
                 c.set(cpx.getPixel(x, y))
@@ -57,7 +61,7 @@ class Ground(
                 }
                 m[x, y] = cellType.code
                 cpx.drawPixel(x, y, Color.rgba8888(cellType.color))
-                stats[cellType] = stats.getOrDefault(cellType, 0) + 1
+                _stats[cellType] = _stats.getOrDefault(cellType, 0) + 1
                 //print(buff[x, y])
             }
             //println(y)

@@ -36,9 +36,10 @@ class MainScreen(
     private var pause = false
 
     val scene = Stage(FitViewport(w.toFloat(), h.toFloat(), camera), game.batch).apply {
-        addActor(pher)
-        addActor(ground)
-        addActor(ants)
+        println("Creating scene")
+        //addActor(pher)
+        //addActor(ground)
+        //addActor(ants)
         ants.addListener {
             when(it) {
                 is PauseEvent -> {
