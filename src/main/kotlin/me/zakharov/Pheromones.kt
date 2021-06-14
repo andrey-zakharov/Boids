@@ -64,7 +64,7 @@ class Pheromones(
         // could we just pass pixmap.pixels.buff directly to cl and read back?
         // draw Matrix on pixmap
         //pixmap = Pixmap(Gdx2DPixmap.newPixmap())
-        tex?.dispose()
+        tex.dispose()
         tex = matrixDisplay(m)
     }
 

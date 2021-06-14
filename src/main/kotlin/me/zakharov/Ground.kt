@@ -21,6 +21,10 @@ enum class CellType(val code: Byte, val color: Color) {
     Obstacle( 0x3, Color.BROWN)
 }
 
+interface GroundVisitor {
+    fun processEmpty()
+}
+
 class Ground(
         private val groundTexture: Texture,
         private val ctx: CLContext,
@@ -62,6 +66,10 @@ class Ground(
                 m[x, y] = cellType.code
                 cpx.drawPixel(x, y, Color.rgba8888(cellType.color))
                 _stats[cellType] = _stats.getOrDefault(cellType, 0) + 1
+                //when {
+                    //cellType == CellType.Nest ->
+
+                //}
                 //print(buff[x, y])
             }
             //println(y)

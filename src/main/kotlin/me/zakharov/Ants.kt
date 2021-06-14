@@ -2,7 +2,6 @@ package me.zakharov.me.zakharov
 
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.Batch
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.scenes.scene2d.Actor
 import me.apemanzilla.ktcl.CLCommandQueue
@@ -10,9 +9,7 @@ import me.apemanzilla.ktcl.CLContext
 import me.apemanzilla.ktcl.cl10.*
 import me.zakharov.Const.BOOL_SIZE
 import me.zakharov.Const.FLOAT2_SIZE
-import me.zakharov.Const.FLOAT_SIZE
 import me.zakharov.Pheromones
-import me.zakharov.me.zakharov.events.PauseEvent
 import org.lwjgl.BufferUtils
 import java.util.*
 import kotlin.math.PI
@@ -28,12 +25,12 @@ class Ants(
     private val w = ground.w
     private val h = ground.h
 
-    private val total_count = 1
-    private val max_speed = 10.0f ///< per second
-    private val angle_degs = 30 ///< angle of detection for ant in degrees
+    private val totalCount = 100
+    private val maxSpeed = 10.0f ///< per second
+    private val angleDegs = 30 ///< angle of detection for ant in degrees
     private val random = Random(Calendar.getInstance().timeInMillis)
     @ExperimentalUnsignedTypes
-    private val maxqs = ceil(PI * max_speed * max_speed * angle_degs / 360).toUInt()
+    private val maxqs = ceil(PI * maxSpeed * maxSpeed * angleDegs / 360).toUInt()
 
     private val prog = ctx.createProgramWithSource( this::class.java.getResource("/ant.cl").readText())
             .also {
@@ -46,10 +43,11 @@ class Ants(
     }
 
     /// entities
-    private val posBuff = BufferUtils.createByteBuffer(total_count * FLOAT2_SIZE)
-    private val velBuff = BufferUtils.createByteBuffer(total_count * FLOAT2_SIZE)
+    private val posBuff = BufferUtils.createByteBuffer(totalCount * FLOAT2_SIZE)
+    private val velBuff = BufferUtils.createByteBuffer(totalCount * FLOAT2_SIZE)
     /** 0 - empty, looking for food, 1 - with food */
-    private val stateBuff = BufferUtils.createByteBuffer(total_count * BOOL_SIZE)
+    /// TODO bitmask
+    private val stateBuff = BufferUtils.createByteBuffer(totalCount * BOOL_SIZE)
 
     private val posCLBuff = ctx.createBuffer(posBuff)
     private val velCLBuff = ctx.createBuffer(velBuff)
@@ -65,7 +63,7 @@ class Ants(
         val p = posBuff.asFloatBuffer()
         val v = velBuff.asFloatBuffer()
 
-        for (i in 0 until total_count) {
+        for (i in 0 until totalCount) {
             p.put(i * 2, random.nextFloat() * w)
             p.put(i * 2 + 1, random.nextFloat() * h)
 
@@ -79,7 +77,12 @@ class Ants(
             //v.put( i * 2 + 1, max_speed)
         }
     }
+/*
+    Texture(White, empty, 100, 100) {
 
+        drawLine(CellType.Obstacle.Color, 0, 0, 50, 50)
+    }.toGround()
+ */
 
     override fun act(delta: Float) {
         super.act(delta)
@@ -89,7 +92,7 @@ class Ants(
         with(kernel) {
             var a = 0
             setArg( a++, delta)
-            setArg( a++, max_speed)
+            setArg( a++, maxSpeed)
             setArg( a++, w)
             setArg( a++, h)
             setArg( a++, ground.shared.remoteBuff)
@@ -110,7 +113,7 @@ class Ants(
 
 
 
-        cmd.enqueueNDRangeKernel(kernel, total_count.toLong())
+        cmd.enqueueNDRangeKernel(kernel, totalCount.toLong())
         cmd.finish()
 
         /// afterNDRun
@@ -127,7 +130,7 @@ class Ants(
     }
 
     fun debugObstacles() {
-        for ( i in 0 until total_count) {
+        for ( i in 0 until totalCount) {
             if ( stateBuff[i] > 0 ) {
                 println("$i has ${stateBuff[i]} obstacles")
             }
@@ -150,7 +153,7 @@ class Ants(
             val c = Vector2(pos[0], pos[1])
             val origin = Vector2(pos[0].toInt() + 0.5f, pos[1].toInt() + 0.5f)
             val v = Vector2(vel[0], vel[1]).setLength(1f)
-            val min_dot = kotlin.math.cos(23.0 * PI / 180f)
+            val minDot = kotlin.math.cos(23.0 * PI / 180f)
 
             println("pos = ${pos[0]}x${pos[1]} ($origin)")
             println("vel = ${vel[0]}x${vel[1]}")
@@ -162,7 +165,7 @@ class Ants(
             for (dd in d) {
                 val np = Vector2(origin).add(dd).sub(origin).setLength(1f)
                 val dot = np.dot(v)
-                println("$dd dot = $dot < $min_dot = ${dot < min_dot}")
+                println("$dd dot = $dot < $minDot = ${dot < minDot}")
             }
         }
     }

@@ -58,5 +58,11 @@ dependencies {
 
 application {
     // Define the main class for the application.
-    mainClassName = "Ants.AppKt"
+    mainClassName = "me.zakharov.GameKt"
 }
+/*
+jar {
+    manifest {
+        attributes 'Main-Class': 'Game'
+    }
+}*/

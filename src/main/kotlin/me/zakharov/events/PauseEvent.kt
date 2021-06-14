@@ -1,4 +1,4 @@
-package me.zakharov.me.zakharov.events
+package me.zakharov.events
 
 import com.badlogic.gdx.scenes.scene2d.Event
 

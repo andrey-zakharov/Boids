@@ -13,7 +13,7 @@ import me.apemanzilla.ktcl.CLCommandQueue
 import me.apemanzilla.ktcl.CLContext
 import me.zakharov.Game
 import me.zakharov.Pheromones
-import me.zakharov.me.zakharov.events.PauseEvent
+import me.zakharov.events.PauseEvent
 import java.nio.ByteBuffer
 import java.util.*
 import kotlin.random.Random
@@ -30,16 +30,16 @@ class MainScreen(
         setToOrtho(false, w.toFloat(), h.toFloat())
     }
 
-    private val ground = Ground(Texture("ground.png"), ctx, cmd, 100, 100)
-    private val pher = Pheromones(ctx, cmd, ground.w, ground.h)
-    private val ants = Ants(ctx, cmd, ground, pher)
+    private val ground by lazy { Ground(Texture("ground-2.png"), ctx, cmd, 100, 100) }
+    private val pher by lazy { Pheromones(ctx, cmd, ground.w, ground.h) }
+    private val ants by lazy { Ants(ctx, cmd, ground, pher) }
     private var pause = false
 
     val scene = Stage(FitViewport(w.toFloat(), h.toFloat(), camera), game.batch).apply {
         println("Creating scene")
-        //addActor(pher)
-        //addActor(ground)
-        //addActor(ants)
+        addActor(pher)
+        addActor(ground)
+        addActor(ants)
         ants.addListener {
             when(it) {
                 is PauseEvent -> {

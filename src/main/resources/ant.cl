@@ -117,7 +117,9 @@ void ant_kernel(
         	if ( ground[ cp.x + cp.y * w ] == obstacle ) {
                 obstacles_found++;
         		vel += convert_float2(origin - cp) * (float2)(delta * 2.0);
-        		//vel = (float2)(0., 0.);
+        		vel = (float2)(0., 0.);
+        		// skip further bfs
+        		// to prevent scanning food behind walls
         	}
             /*if ( pheromones[ cp.x + cp.y * w ] > 0 ) {
                 vel += 3.f / vel - convert_float2(cp - origin);

@@ -1,1 +1,1 @@
-package me.zakharov.me.zakharov.utils
+package me.zakharov.utils

@@ -14,13 +14,13 @@ import kotlin.time.Duration
 
 val d: (m: Any) -> Unit = ::println
 
-@kotlin.time.ExperimentalTime
-fun Duration.toString() {
-    //locale etc.
-    "${this.inWholeMilliseconds} ms"
-}
-
 class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
+    // kotlin <-> java main hack
+    companion object {
+        @JvmStatic fun main(args: List<String>): Unit {
+            main()
+        }
+    }
     val batch by lazy { SpriteBatch() }
     val font by lazy { BitmapFont() }
 
@@ -31,18 +31,18 @@ class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
     //  allocBuffersFromArgs?
     // }
     //
-    val saxpyKernel = Saxpy(ctx, cmd)
+    //val saxpyKernel = Saxpy(ctx, cmd)
 
     val maxItemsX = device.maxWorkItemSizes[0]
     val maxItemsY = device.maxWorkItemSizes[1]//, maxItemsZ)
 
     override fun create() {
-        val duration = kotlin.system.measureTimeMillis {
+        val durMs = kotlin.system.measureTimeMillis {
             addScreen(MainScreen(this, ctx, cmd))
             setScreen<MainScreen>()
             super.create()
         }
-        d("Created Game: $duration")
+        d("Created Game: $durMs ms")
     }
 
 //    fun run() {
@@ -79,9 +79,10 @@ fun main() {
         }
 
     } catch (e: CLException) {
-        println(e)
+        System.err.println(e)
+        //return 1
         //error("CL exception", e)
     }
 
-
+    //return 0
 }
