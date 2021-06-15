@@ -116,8 +116,9 @@ void ant_kernel(
 
         	if ( ground[ cp.x + cp.y * w ] == obstacle ) {
                 obstacles_found++;
-        		vel += convert_float2(origin - cp) * (float2)(delta * 2.0);
-        		vel = (float2)(0., 0.);
+        		//vel += convert_float2(origin - cp) * (float2)(delta * 2.0);
+        		vel = convert_float2(origin - cp) * (float2)(delta * 2.0);
+        		//vel = (float2)(0., 0.);
         		// skip further bfs
         		// to prevent scanning food behind walls
         	}
@@ -180,6 +181,13 @@ void ant_kernel(
     }
 
     velocities[index] = vel;
-    coords[index] = wrap_bounds(pos + velocities[index] * delta, w, h);
+    float2 next_coords = wrap_bounds(pos + velocities[index] * delta, w, h);
+    uint2 next_pos = convert_uint2(next_coords);
+    if ( ground[ next_pos.x + next_pos.y * w ] == obstacle ) {
+        velocities[index] = (float2)0.;
+
+    } else {
+        coords[index] = next_coords;
+    }
     state[index] = out_state;
 }

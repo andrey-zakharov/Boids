@@ -2,6 +2,7 @@ package me.zakharov.me.zakharov
 
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.Batch
+import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.scenes.scene2d.Actor
 import me.apemanzilla.ktcl.CLCommandQueue
@@ -16,16 +17,17 @@ import kotlin.math.PI
 import kotlin.math.ceil
 
 class Ants(
-        private val ctx: CLContext,
-        private val cmd: CLCommandQueue,
-        private val ground: Ground,
-        private val pheromones: Pheromones
+    private val ctx: CLContext,
+    private val cmd: CLCommandQueue,
+    private val ground: Ground,
+    private val pheromones: Pheromones,
+    private val font: BitmapFont,
 ) : Actor() {
 
     private val w = ground.w
     private val h = ground.h
 
-    private val totalCount = 100
+    private val totalCount = 2
     private val maxSpeed = 10.0f ///< per second
     private val angleDegs = 30 ///< angle of detection for ant in degrees
     private val random = Random(Calendar.getInstance().timeInMillis)
@@ -56,7 +58,8 @@ class Ants(
     //private val outPheromones = ctx.createBuffer(pheromones.size)
 
     //private val shapeRenderer = ShapeRenderer()
-    private val tex = Texture("ant.png")
+    private val tex = Texture("carpenter-ant-small.png")
+
 
     init {
 
@@ -172,11 +175,33 @@ class Ants(
 
     override fun draw(batch: Batch?, parentAlpha: Float) {
         super.draw(batch, parentAlpha)
+        val scaleStageX = stage.width / w.toFloat()
+        val scaleStageY = stage.height / h.toFloat()
 
         batch?.let {
             val p = posBuff.asFloatBuffer()
+            val v = velBuff.asFloatBuffer()
             for ( i in 0 until p.capacity() / 2 ) {
-                it.draw(tex, p[2*i] * stage.width / w, (h - p[2*i+1]) * stage.height / h)
+                val pos = Vector2(p[2*i] * scaleStageX, (h - p[2*i+1]) * scaleStageY )
+                val vel = Vector2(v[2*i], v[2*i+1])
+
+                // pos2world
+                it.draw(
+                    tex,
+                    pos.x - tex.width / 2f,
+                    pos.y - tex.height / 2f,
+                    tex.width / 2f, tex.height / 2f,
+                    tex.width.toFloat(), tex.height.toFloat(),
+                    1f, 1f, 90 - vel.angleDeg(),
+                    0, 0,
+                    tex.width, tex.height,
+                    false, true
+                )
+
+                //font.draw(batch, "%.2fx%.2f".format(p[2*i], p[2*i+1]), pos.x, pos.y + 20f )
+                font.draw(batch, "%.2fx%.2f".format(vel.x, vel.y), pos.x, pos.y + 20f )
+
+
             }
         }
 

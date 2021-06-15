@@ -32,7 +32,7 @@ class MainScreen(
 
     private val ground by lazy { Ground(Texture("ground-2.png"), ctx, cmd, 100, 100) }
     private val pher by lazy { Pheromones(ctx, cmd, ground.w, ground.h) }
-    private val ants by lazy { Ants(ctx, cmd, ground, pher) }
+    private val ants by lazy { Ants(ctx, cmd, ground, pher, game.font) }
     private var pause = false
 
     val scene = Stage(FitViewport(w.toFloat(), h.toFloat(), camera), game.batch).apply {
@@ -52,13 +52,6 @@ class MainScreen(
     }
 
     val random = Random(Calendar.getInstance().timeInMillis)
-
-    val buf = ByteBuffer.allocate(w * h * 3).apply {
-        for( i in 0 until capacity()) {
-            put(i, random.nextInt().toByte())
-        }
-        rewind()
-    }
 
     private val pixmap = Pixmap(w, h, Pixmap.Format.RGB888).apply {
         filter = Pixmap.Filter.NearestNeighbour
