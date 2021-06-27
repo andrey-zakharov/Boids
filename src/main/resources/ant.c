@@ -1,41 +1,29 @@
-typedef struct {
-    uint pos_tail; // push here
-    uint pos_front; // pop here
-    uint2 queue[MAX_QUEUE_SIZE];
-} queue;
+#ifndef MAXLOOKUPANGLE
+    #define MAXLOOKUPANGLE 30.
+#endif
 
-void queue_init(queue *q) {
-	q->pos_tail = 0;
-	q->pos_front = 0;
-}
+__constant float2 d[8] = {
+	(float2)(-1., -1.), (float2)(0., -1.), (float2)(1., -1.),
+	(float2)(-1.,  0.), 			       (float2)(1.,  0.),
+	(float2)(-1., +1.), (float2)(0., +1.), (float2)(1., +1.),
+};
 
-bool queue_empty(queue const *q) {
-    return q->pos_tail <= q->pos_front;
-}
-
-void queue_push(queue* q, uint2 v) {
-	if (q->pos_tail >= MAX_QUEUE_SIZE ) {
-		return;
-	}
-    q->queue[q->pos_tail++] = v;
-}
-
-uint2 queue_pop(queue* q) {
-    return q->queue[q->pos_front++];
-}
-
-bool check_queued( queue const * q, const uint2 p) {
-	for( size_t i = 0; i < q->pos_tail; i++) {
-		//if ( all(q->queue[i] == p) ) return true; <-- crashed video driver
-		if ( q->queue[i].x == p.x && q->queue[i].y == p.y ) return true;
-	}
-	return false;
-}
+__constant const size_t StateEmpty = 0;
+__constant const size_t StateFull = 0;
+enum State { empty = 0, full = 1 } ;
+enum CellType { cellEmpty = 0, nest = 1, food = 2, obstacle = 3 } ;
+enum PherType { none = 0, trail = 1, food_trail = 2 } ;
 
 float random (float2 _st) {
     float rem;
     return fract(sin(dot(_st.xy, (float2)(12.9898,78.233))) * 43758.5453123, &rem);
 }
+
+typedef struct {
+    __global float2* matrix;
+    uint w;
+    uint h;
+} wrapping_field;
 
 float2 wrap_bounds(float2 pos, uint w, uint h) {
     float2 ret = pos;
@@ -48,24 +36,35 @@ float2 wrap_bounds(float2 pos, uint w, uint h) {
 
 /// origin of ant, cp - current point, np - next point to check
 bool check_valid(const float2 origin, const float2 vel, const float2 np) {
-    const float min_dot = cos(radians(23.));
-    const float nextlen = length( np - origin );
 
-	if ( dot( normalize( vel ), normalize( np - origin ) ) < min_dot ) return false;
-    if ( nextlen > length(vel) ) return false;
+    float min_dot = cos(radians(MAXLOOKUPANGLE));
+    const float nextlen = length( np - origin );
+    float maxlen = length(vel);
+    // special case when velocity is zero
+    if ( maxlen == 0.0 ) {
+        min_dot = -M_PI;
+        maxlen = 1.5; // 1 and 1.4 neighbours
+    }
+
+    float dt = dot( normalize( vel ), normalize( np - origin ));
+    printf("v=(%.3f, %.3f)\tnextlen=%f, dot = %f\t>= min_dot=%f\t = %d\n"
+        , vel.x, vel.y, nextlen, dt, min_dot, dt >= min_dot);
+
+	if ( dt < min_dot ) return false;
+    if ( nextlen > maxlen ) return false;
     return true;
 }
 
-__constant float2 d[8] = {
-	(float2)(-1., -1.), (float2)(0., -1.), (float2)(1., -1.),
-	(float2)(-1.,  0.), 			   (float2)(1.,  0.),
-	(float2)(-1., +1.), (float2)(0., +1.), (float2)(1., +1.),
-};
 
-__constant const size_t StateEmpty = 0;
-__constant const size_t StateFull = 0;
-enum State { empty = 0, full = 1 } ;
-enum CellType { cellEmpty = 0, nest = 1, food = 2, obstacle = 3 } ;
+//wrapping safe setter
+void set_cell_pheromone(wrapping_field* pheromones, int x, int y, enum PherType v ) {
+    float2 pos = wrap_bounds((float2)(x, y), pheromones->w, pheromones->h);
+    int idx = (int)pos.x + (int)pos.y * pheromones->w;
+    switch(v) {
+        case trail: pheromones->matrix[idx] = 1.0f;
+        case food_trail: pheromones->matrix[idx] = -1.0f;
+    }
+}
 
 __kernel
 void ant_kernel(
@@ -78,7 +77,6 @@ void ant_kernel(
     __global float2*    coords,
     __global float2*    velocities,
     __global uchar*     state
-    //__global float2*    out
 )
 {
     float accel = max_speed / 10.;
@@ -91,10 +89,11 @@ void ant_kernel(
     float2 pos = coords[index];
     float2 vel = velocities[index];
     uchar out_state = state[index];
+    wrapping_field phers = {pheromones, w, h};
     bool emp = state[index] == 0;
 
     // random fluctuation
-    float r = (random(pos) - 0.5) * 0.17453292519943 /*10 deg*/;
+    float r = (random(pos+vel) - 0.5) * 0.17453292519943 /*10 deg*/;
     //r = 0.01;
     vel = (float2)( vel.x * cos(r) - vel.y * sin(r), vel.x * sin(r) + vel.y * cos(r) );
 
@@ -105,27 +104,13 @@ void ant_kernel(
     // and center of current cell
     float2 iorigin = convert_float2(origin) + (float2)0.5;
     size_t obstacles_found = 0;
+    float2 vel_acc = (float2)0.;
 
     /// BFS
     while(!queue_empty(&cells)) {
         uint2 cp = queue_pop(&cells);
+        printf("= looking around cell %d, %d\n", cp.x, cp.y);
         float2 fcp = convert_float2(cp) + (float2)0.5;
-        
-        // addition of this point
-        if ( cp.x != origin.x && cp.y != origin.y ) {
-
-        	if ( ground[ cp.x + cp.y * w ] == obstacle ) {
-                obstacles_found++;
-        		//vel += convert_float2(origin - cp) * (float2)(delta * 2.0);
-        		vel = convert_float2(origin - cp) * (float2)(delta * 2.0);
-        		//vel = (float2)(0., 0.);
-        		// skip further bfs
-        		// to prevent scanning food behind walls
-        	}
-            /*if ( pheromones[ cp.x + cp.y * w ] > 0 ) {
-                vel += 3.f / vel - convert_float2(cp - origin);
-            }*/
-        }
 
         // neighbours
         // first check by min angle, but at least get one with max dot product
@@ -134,13 +119,11 @@ void ant_kernel(
         uint maxdoti = -1;
         for ( uint i = 0; i < sizeof(d)/sizeof(int2); i++ ) {
         	float2 fupp = fcp + d[i];
-            uint2 upp = convert_uint2(fupp);
 
-            if (check_valid(iorigin, vel, fupp) && !check_queued(&cells, upp)) {
-            	// debug
-            	uint2 debug = convert_uint2(wrap_bounds(fupp, w, h));
-            	pheromones[(int)debug.x + (int)debug.y*w] = -1.0f;
-                queue_push(&cells, upp);
+            uint2 cell_to_add = convert_uint2(wrap_bounds(fupp, w, h));
+
+            if (check_valid(iorigin, vel, fupp) && !check_queued(&cells, cell_to_add)) {
+                queue_push(&cells, cell_to_add);
                 added ++;
             }
 
@@ -151,15 +134,48 @@ void ant_kernel(
             }
         }
 
-        /*if ( added == 0 ) {
+        printf("added to PF queue= %d\n", added);
+        queue_print(&cells);
+
+#ifdef WITH_FALLBACK_PATHFINDING
+        if ( added == 0 ) {
             uint2 last_chance = convert_uint2(fcp + d[maxdoti]);
             if ( length (last_change - fcp) < length(vel) ) {
+                //debug
                 pheromones[(int)last_chance.x + (int)last_chance.y * w] = -1.0f;
                 queue_push(&cells, last_chance);
             }
+        }
+#endif
+
+        printf("|| end looking around cell\n");
+        if ( cp.x == origin.x && cp.y == origin.y ) {
+            continue;
+        }
+
+        // accumulate all changes from found cell
+        // debug
+        uint2 debug = convert_uint2(wrap_bounds(fcp, w, h));
+        pheromones[(int)debug.x + (int)debug.y*w] = -1.0f;
+
+        if ( ground[ cp.x + cp.y * w ] == obstacle ) {
+            obstacles_found++;
+            float2 opforce = convert_float2(origin) - convert_float2(cp);
+            float len = length(opforce); // from 1 .. 7
+            vel_acc += (opforce / len);
+            //vel = convert_float2(origin - cp);
+            //vel = (float2)(0., 0.);
+            // skip further bfs
+            // to prevent scanning food behind walls
+        }
+        /*if ( pheromones[ cp.x + cp.y * w ] > 0 ) {
+            vel += 3.f / vel - convert_float2(cp - origin);
         }*/
+    }
 
-
+    if (obstacles_found > 0) {
+        vel += vel_acc / obstacles_found;
+        printf("obstacles: %d vel addition %v\n", obstacles_found, vel_acc);
     }
 
     out_state = obstacles_found; // ? obstacle : empty;
@@ -183,11 +199,11 @@ void ant_kernel(
     velocities[index] = vel;
     float2 next_coords = wrap_bounds(pos + velocities[index] * delta, w, h);
     uint2 next_pos = convert_uint2(next_coords);
-    if ( ground[ next_pos.x + next_pos.y * w ] == obstacle ) {
-        velocities[index] = (float2)0.;
-
-    } else {
+    //if ( ground[ next_pos.x + next_pos.y * w ] == obstacle ) {
+    //    velocities[index] = -velocities[index];
+//
+    //} else {
         coords[index] = next_coords;
-    }
+    //}
     state[index] = out_state;
 }

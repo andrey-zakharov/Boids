@@ -6,8 +6,6 @@ import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
-import com.badlogic.gdx.scenes.scene2d.InputEvent
-import com.badlogic.gdx.scenes.scene2d.InputListener
 import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.utils.viewport.FitViewport
 import ktx.app.KtxScreen
@@ -20,7 +18,7 @@ import java.nio.ByteBuffer
 import java.util.*
 import kotlin.random.Random
 
-class MainScreen(
+class TestScreen(
         val game: Game,
         val ctx: CLContext,
         val cmd: CLCommandQueue
@@ -36,7 +34,6 @@ class MainScreen(
     private val pher by lazy { Pheromones(ctx, cmd, ground.w, ground.h) }
     private val ants by lazy { Ants(ctx, cmd, ground, pher, game.font) }
     private var pause = false
-    private var oneStep = false
 
     val scene = Stage(FitViewport(w.toFloat(), h.toFloat(), camera), game.batch).apply {
         println("Creating scene")
@@ -52,20 +49,6 @@ class MainScreen(
                 else -> false
             }
         }
-        addListener( object: InputListener() {
-            override fun keyUp(event: InputEvent?, keycode: Int): Boolean {
-                when(keycode) {
-                    Input.Keys.SPACE -> pause = !pause
-                    Input.Keys.S -> oneStep = true
-                    Input.Keys.R -> pher.reset()
-                    Input.Keys.P -> pher.print()
-                    else -> return false
-                }
-                return true
-            }
-        })
-
-        Gdx.input.inputProcessor = this
     }
 
     val random = Random(Calendar.getInstance().timeInMillis)
@@ -90,13 +73,24 @@ class MainScreen(
         tex = Texture(pixmap)
     }
 
+    private fun processInput() {
+        if ( Gdx.input.isKeyJustPressed(Input.Keys.SPACE) ) {
+            pause = !pause
+        }
+    }
+
     override fun render(delta: Float) {
+
+        processInput()
         //camera.update()
         //game.batch.projectionMatrix = camera.combined
 
-        if ( !pause || oneStep) {
+        //game.batch.begin()
+        //game.batch.draw(tex, 0f, 0f)
+        //game.font.draw(game.batch, "Welcome!!! ", 0f, 50f)
+        //game.font.draw(game.batch, "Tap anywhere to begin!", 100f, 100f)
+        if ( !pause ) {
             scene.act()
-            oneStep = false
         }
 
         scene.draw()
