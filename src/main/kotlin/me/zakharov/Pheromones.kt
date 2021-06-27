@@ -97,7 +97,7 @@ class Pheromones(
     // TODO shader
     private fun matrixDisplay(m: Matrix2d<Float>): Texture {
 
-        val stats = HashMap<PherType, Int>()
+        //val stats = HashMap<PherType, Int>()
 
         pixmap.pixels.apply {
             for (y in 0 until pixmap.height) {
@@ -107,12 +107,12 @@ class Pheromones(
                     //val c = (abs(buff[x, y]) * 0xff).toByte() // 0 .. 1?
                     // its just a tranformation .map { colors
                     val (c, ty) = map2color(m[x, y])
-                    stats[ty] = stats.getOrDefault(ty, 0) + 1
+                    //stats[ty] = stats.getOrDefault(ty, 0) + 1
                     this.putInt(idx, c)
                 }
             }
         }
-        d("Redraw $stats")
+        //d("Redraw $stats")
         return Texture(pixmap).apply {
             setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest)
         }

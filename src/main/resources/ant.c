@@ -46,7 +46,7 @@ bool check_valid(const float2 origin, const float2 vel, const float2 np) {
     }
 
     float dt = dot( normalize( vel ), normalize( np - origin ));
-    printf("v=(%.3f, %.3f)\tnextlen=%f,\tmaxlen=%f, dot = %f\t>= min_dot=%f\t = %d\n", vel.x, vel.y, nextlen, maxlen, dt, min_dot, dt >= min_dot);
+    //printf("check_valid v=(%.3f, %.3f)\tnextlen=%f,\tmaxlen=%f, dot = %f\t>= min_dot=%f\t = %d\n", vel.x, vel.y, nextlen, maxlen, dt, min_dot, dt >= min_dot);
 
 	if ( dt < min_dot ) return false;
     if ( nextlen > maxlen ) return false;
@@ -88,7 +88,7 @@ void ant_kernel(
     //    return;
     float2 pos = coords[index];
     float2 vel = velocities[index];
-    printf(" = STEP pos=(%.3f, %.3f) vel=(%.3f, %.3f)\n", pos.x, pos.y, vel.x, vel.y);
+    //printf(" = STEP pos=(%.3f, %.3f) vel=(%.3f, %.3f)\n", pos.x, pos.y, vel.x, vel.y);
     uchar out_state = state[index];
     wrapping_field phers = {pheromones, w, h};
     bool emp = state[index] == 0;
@@ -174,8 +174,8 @@ void ant_kernel(
     }
 
     if (obstacles_found > 0) {
-        vel += vel_acc / obstacles_found;
-        printf("obstacles: %d vel addition %0.5f, %0.5f\n", obstacles_found, vel_acc.x, vel_acc.y);
+        vel += vel_acc ;//*(float2)(2.)  / obstacles_found;
+        //printf("obstacles: %d vel addition %0.5f, %0.5f\n", obstacles_found, vel_acc.x, vel_acc.y);
     }
 
     out_state = obstacles_found; // ? obstacle : empty;
