@@ -1,5 +1,8 @@
 package me.zakharov
 
+import com.badlogic.gdx.graphics.Texture
+import com.badlogic.gdx.graphics.g2d.Batch
+import com.badlogic.gdx.scenes.scene2d.Actor
 import me.apemanzilla.ktcl.CLBuffer
 import me.apemanzilla.ktcl.CLCommandQueue
 import me.apemanzilla.ktcl.CLContext
@@ -8,6 +11,7 @@ import me.zakharov.Const.FLOAT_SIZE
 import org.lwjgl.BufferUtils
 import java.nio.Buffer
 import java.nio.ByteBuffer
+import java.util.*
 
 interface SharedBuffer {
     val buff: ByteBuffer
@@ -48,6 +52,17 @@ abstract class Matrix2d<T>(val width: Int, val height: Int, val elementSize: Int
     val buff: ByteBuffer = BufferUtils.createByteBuffer(width * height * elementSize)
     abstract operator fun get(x: Int, y: Int): T
     abstract operator fun set(x: Int, y: Int, v: T)
+    fun clear() {
+        buff.rewind()
+        for(i in 0 until buff.capacity()) buff.put(i, 0)
+    }
+    fun forEach(block: (x: Int, y: Int, v: T) -> Unit) {
+        for ( y in 0 until height ) {
+            for (x in 0 until width) {
+                block(x, y, this[x, y])
+            }
+        }
+    }
 }
 
 fun createFloatMatrix2d(width: Int, height: Int) = object : Matrix2d<Float>(width, height, FLOAT_SIZE) {
@@ -59,11 +74,3 @@ fun createByteMatrix2d(width: Int, height: Int) = object : Matrix2d<Byte>(width,
     override operator fun get(x: Int, y: Int) = buff.get(y * width + x)
     override operator fun set(x: Int, y: Int, v: Byte) { buff.put(y * width + x, v) }
 }
-
-// TBD sampler
-@Suppress("CAST_NEVER_SUCCEEDS")
-fun ByteBuffer.asFloatMatrix2d(width: Int, height: Int): Matrix2d<Float> = createFloatMatrix2d(width, height)
-
-
-@Suppress("CAST_NEVER_SUCCEEDS")
-fun ByteBuffer.asByteMatrix2d(width: Int, height: Int) : Matrix2d<Byte> = createByteMatrix2d(width, height)

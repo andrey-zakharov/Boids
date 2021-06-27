@@ -1,8 +1,10 @@
 package me.zakharov.me.zakharov
 
+import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.Batch
 import com.badlogic.gdx.graphics.g2d.BitmapFont
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.scenes.scene2d.Actor
 import me.apemanzilla.ktcl.CLCommandQueue
@@ -10,11 +12,52 @@ import me.apemanzilla.ktcl.CLContext
 import me.apemanzilla.ktcl.cl10.*
 import me.zakharov.Const.BOOL_SIZE
 import me.zakharov.Const.FLOAT2_SIZE
+import me.zakharov.PherType
 import me.zakharov.Pheromones
+import me.zakharov.d
+import me.zakharov.events.PauseEvent
+import me.zakharov.warn
 import org.lwjgl.BufferUtils
 import java.util.*
 import kotlin.math.PI
 import kotlin.math.ceil
+
+data class AntConfig(
+    val angleDegs: Float = 30f
+)
+
+data class Ant(val conf: AntConfig, val pos: Vector2, val vel: Vector2) {
+
+    // static config
+    // max_angle_lookup
+
+    operator fun invoke(shapes: ShapeRenderer?) {
+        shapes?.apply {
+            // save state
+            val old = color
+            color = Color.RED
+
+            val viewVel = vel
+            rectLine(pos, pos + viewVel, 10f)
+
+            color = Color.GOLD
+            val lBound = pos + viewVel.rotatedDeg(-conf.angleDegs)
+            val rBound = pos + viewVel.rotatedDeg(conf.angleDegs)
+            triangle(pos.x, pos.y, lBound.x, lBound.y, rBound.x, rBound.y)
+
+            // load state
+            color = old
+        }
+    }
+    operator fun invoke(draw: Batch?) {
+
+    }
+}
+
+internal fun Vector2.flipY() = Vector2(this.x, -this.y)
+internal operator fun Vector2.times(times: Float) = Vector2(this.x * times, this.y * times)
+internal operator fun Vector2.plus(pos: Vector2) = Vector2(this.x + pos.x, this.y + pos.y)
+internal fun Vector2.rotatedDeg(deg: Float): Vector2 = Vector2(this).rotateDeg(deg)
 
 class Ants(
     private val ctx: CLContext,
@@ -22,23 +65,30 @@ class Ants(
     private val ground: Ground,
     private val pheromones: Pheromones,
     private val font: BitmapFont,
+    // config
+    private val angleDegs: Float = 30f ///< angle of detection for ant in degrees
 ) : Actor() {
+
 
     private val w = ground.w
     private val h = ground.h
 
-    private val totalCount = 2
+    private val totalCount = 1
     private val maxSpeed = 10.0f ///< per second
-    private val angleDegs = 30 ///< angle of detection for ant in degrees
+
     private val random = Random(Calendar.getInstance().timeInMillis)
     @ExperimentalUnsignedTypes
-    private val maxqs = ceil(PI * maxSpeed * maxSpeed * angleDegs / 360).toUInt()
+    private val maxQueueSize = ceil(PI * maxSpeed * maxSpeed * angleDegs / 360).toUInt()
 
-    private val prog = ctx.createProgramWithSource( this::class.java.getResource("/ant.cl").readText())
+    private val prog = ctx.createProgramWithSource(
+        this::class.java.getResource("/queue.c").readText(),
+        PherType.clCode(),
+        this::class.java.getResource("/ant.c").readText()
+    )
             .also {
-                it.build("-DMAX_QUEUE_SIZE=$maxqs")
-                println("build ants with MAX_QUEUE_SIZE=$maxqs")
-
+                // WITH_FALLBACK_PATHFINDING=true
+                it.build("-DMAX_QUEUE_SIZE=$maxQueueSize")
+                d("build ants with MAX_QUEUE_SIZE=$maxQueueSize")
             }
     private val kernel = prog.createKernel("ant_kernel").also {
         //it.setArg(1, thres)
@@ -127,15 +177,19 @@ class Ants(
         }
         // kernel's flows
         pheromones.shared.download(cmd)
+        pheromones.requestRedraw()
         debugScanning()
-        debugObstacles()
+        //debugObstacles()
 
     }
 
     fun debugObstacles() {
+        val p = posBuff.asFloatBuffer()
         for ( i in 0 until totalCount) {
+
+            val pos = Vector2(p[i*2], p[i*2+1])
             if ( stateBuff[i] > 0 ) {
-                println("$i has ${stateBuff[i]} obstacles")
+                d("$i $pos has ${stateBuff[i]} obstacles")
             }
 
         }
@@ -143,14 +197,13 @@ class Ants(
 
     fun debugScanning() {
         var r = 0
-        for ( y in 9 until pheromones.h ) {
-            for (x in 0 until pheromones.w) {
-                if ( pheromones.m[x, y] == -1f) r++
-            }
+        pheromones.m.forEach { x, y, v ->
+            if ( v == PherType.food_trail.v) r++
         }
+
         if ( r == 0 ) {
-            //this.fire(PauseEvent(pause = true))
-            println("EMPTY SCAN")
+            this.fire(PauseEvent(pause = true))
+            warn("EMPTY SCAN")
             val pos = posBuff.asFloatBuffer()
             val vel = velBuff.asFloatBuffer()
             val c = Vector2(pos[0], pos[1])
@@ -158,8 +211,8 @@ class Ants(
             val v = Vector2(vel[0], vel[1]).setLength(1f)
             val minDot = kotlin.math.cos(23.0 * PI / 180f)
 
-            println("pos = ${pos[0]}x${pos[1]} ($origin)")
-            println("vel = ${vel[0]}x${vel[1]}")
+            warn("pos = ${pos[0]}x${pos[1]} ($origin)")
+            warn("vel = ${vel[0]}x${vel[1]}")
             val d = arrayOf(
                     Vector2(-1f, -1f), Vector2(0f, -1f), Vector2(1f, -1f),
                     Vector2(-1f, 0f)                       , Vector2(1f, 0f),
@@ -168,8 +221,10 @@ class Ants(
             for (dd in d) {
                 val np = Vector2(origin).add(dd).sub(origin).setLength(1f)
                 val dot = np.dot(v)
-                println("$dd dot = $dot < $minDot = ${dot < minDot}")
+                warn("$dd dot = $dot >= $minDot = ${dot >= minDot}")
             }
+
+            pheromones.print()
         }
     }
 
@@ -216,6 +271,25 @@ class Ants(
 //                end()
 //            }
         //}
+    }
+
+    fun forEach(block: (pos: Vector2, vel: Vector2) -> Unit) {
+        val scaleStageX = stage.width / w.toFloat()
+        val scaleStageY = stage.height / h.toFloat()
+        val p = posBuff.asFloatBuffer()
+        val v = velBuff.asFloatBuffer()
+        for ( i in 0 until p.capacity() / 2 ) {
+            val pos = Vector2(p[2 * i] * scaleStageX, (h - p[2 * i + 1]) * scaleStageY)
+            val vel = Vector2(v[2 * i] * scaleStageX, -v[2 * i + 1] * scaleStageY)
+            block(pos, vel)
+        }
+    }
+
+    override fun drawDebug(shapes: ShapeRenderer?) {
+        super.drawDebug(shapes)
+        forEach { pos, vel ->
+            Ant(AntConfig(angleDegs), pos, vel).invoke(shapes)
+        }
     }
 
 }

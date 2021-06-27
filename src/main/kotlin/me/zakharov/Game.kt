@@ -13,14 +13,9 @@ import me.zakharov.me.zakharov.MainScreen
 import kotlin.time.Duration
 
 val d: (m: Any) -> Unit = ::println
+val warn: (m: Any) -> Unit = ::println
 
 class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
-    // kotlin <-> java main hack
-    companion object {
-        @JvmStatic fun main(args: List<String>): Unit {
-            main()
-        }
-    }
     val batch by lazy { SpriteBatch() }
     val font by lazy { BitmapFont() }
 
@@ -38,7 +33,9 @@ class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
 
     override fun create() {
         val durMs = kotlin.system.measureTimeMillis {
-            addScreen(MainScreen(this, ctx, cmd))
+            addScreen(MainScreen(this, ctx, cmd).apply {
+
+            })
             setScreen<MainScreen>()
             super.create()
         }

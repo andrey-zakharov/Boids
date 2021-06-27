@@ -12,7 +12,6 @@ __constant const size_t StateEmpty = 0;
 __constant const size_t StateFull = 0;
 enum State { empty = 0, full = 1 } ;
 enum CellType { cellEmpty = 0, nest = 1, food = 2, obstacle = 3 } ;
-enum PherType { none = 0, trail = 1, food_trail = 2 } ;
 
 float random (float2 _st) {
     float rem;
@@ -20,7 +19,7 @@ float random (float2 _st) {
 }
 
 typedef struct {
-    __global float2* matrix;
+    __global float* matrix;
     uint w;
     uint h;
 } wrapping_field;
@@ -47,23 +46,24 @@ bool check_valid(const float2 origin, const float2 vel, const float2 np) {
     }
 
     float dt = dot( normalize( vel ), normalize( np - origin ));
-    printf("v=(%.3f, %.3f)\tnextlen=%f, dot = %f\t>= min_dot=%f\t = %d\n"
-        , vel.x, vel.y, nextlen, dt, min_dot, dt >= min_dot);
+    printf("v=(%.3f, %.3f)\tnextlen=%f,\tmaxlen=%f, dot = %f\t>= min_dot=%f\t = %d\n", vel.x, vel.y, nextlen, maxlen, dt, min_dot, dt >= min_dot);
 
 	if ( dt < min_dot ) return false;
     if ( nextlen > maxlen ) return false;
     return true;
 }
 
-
 //wrapping safe setter
-void set_cell_pheromone(wrapping_field* pheromones, int x, int y, enum PherType v ) {
-    float2 pos = wrap_bounds((float2)(x, y), pheromones->w, pheromones->h);
+void set_cell_pheromone(wrapping_field* pheromones, float2 cell, enum PherType v ) {
+    float2 pos = wrap_bounds(cell, pheromones->w, pheromones->h);
     int idx = (int)pos.x + (int)pos.y * pheromones->w;
-    switch(v) {
+    /*switch(v) {
         case trail: pheromones->matrix[idx] = 1.0f;
         case food_trail: pheromones->matrix[idx] = -1.0f;
-    }
+        case debug: pheromones->matrix[idx] = -2.0f;
+        default: return;
+    }*/
+    pheromones->matrix[idx] = (float)v;
 }
 
 __kernel
@@ -88,6 +88,7 @@ void ant_kernel(
     //    return;
     float2 pos = coords[index];
     float2 vel = velocities[index];
+    printf(" = STEP pos=(%.3f, %.3f) vel=(%.3f, %.3f)\n", pos.x, pos.y, vel.x, vel.y);
     uchar out_state = state[index];
     wrapping_field phers = {pheromones, w, h};
     bool emp = state[index] == 0;
@@ -109,8 +110,10 @@ void ant_kernel(
     /// BFS
     while(!queue_empty(&cells)) {
         uint2 cp = queue_pop(&cells);
-        printf("= looking around cell %d, %d\n", cp.x, cp.y);
+        //printf("= looking around cell %d, %d\n", cp.x, cp.y);
+
         float2 fcp = convert_float2(cp) + (float2)0.5;
+
 
         // neighbours
         // first check by min angle, but at least get one with max dot product
@@ -120,7 +123,8 @@ void ant_kernel(
         for ( uint i = 0; i < sizeof(d)/sizeof(int2); i++ ) {
         	float2 fupp = fcp + d[i];
 
-            uint2 cell_to_add = convert_uint2(wrap_bounds(fupp, w, h));
+            set_cell_pheromone(&phers, fupp, debug);
+            uint2 cell_to_add = convert_uint2(fupp);
 
             if (check_valid(iorigin, vel, fupp) && !check_queued(&cells, cell_to_add)) {
                 queue_push(&cells, cell_to_add);
@@ -134,30 +138,26 @@ void ant_kernel(
             }
         }
 
-        printf("added to PF queue= %d\n", added);
-        queue_print(&cells);
+        //printf("added to PF queue= %d\n", added);
+        //queue_print(&cells);
 
 #ifdef WITH_FALLBACK_PATHFINDING
         if ( added == 0 ) {
-            uint2 last_chance = convert_uint2(fcp + d[maxdoti]);
+            uint2 last_chance = fcp + d[maxdoti];
             if ( length (last_change - fcp) < length(vel) ) {
                 //debug
-                pheromones[(int)last_chance.x + (int)last_chance.y * w] = -1.0f;
+                set_cell_pheromone(&phers, last_chance, food_trail);
                 queue_push(&cells, last_chance);
             }
         }
 #endif
 
-        printf("|| end looking around cell\n");
+        //printf("|| end looking around cell\n");
         if ( cp.x == origin.x && cp.y == origin.y ) {
             continue;
         }
 
         // accumulate all changes from found cell
-        // debug
-        uint2 debug = convert_uint2(wrap_bounds(fcp, w, h));
-        pheromones[(int)debug.x + (int)debug.y*w] = -1.0f;
-
         if ( ground[ cp.x + cp.y * w ] == obstacle ) {
             obstacles_found++;
             float2 opforce = convert_float2(origin) - convert_float2(cp);
@@ -175,12 +175,17 @@ void ant_kernel(
 
     if (obstacles_found > 0) {
         vel += vel_acc / obstacles_found;
-        printf("obstacles: %d vel addition %v\n", obstacles_found, vel_acc);
+        printf("obstacles: %d vel addition %0.5f, %0.5f\n", obstacles_found, vel_acc.x, vel_acc.y);
     }
 
     out_state = obstacles_found; // ? obstacle : empty;
 
-    pheromones[(int)pos.x + (int)pos.y*w] = 1.0f;
+    set_cell_pheromone(&phers, pos, trail);
+    //debug queue
+    for( size_t i = 0; i < cells.pos_tail; i++ ) {
+        // debug
+        set_cell_pheromone(&phers, convert_float2(cells.queue[i]), food_trail);
+    }
 
     float len = length(vel);
     if (len == 0) {

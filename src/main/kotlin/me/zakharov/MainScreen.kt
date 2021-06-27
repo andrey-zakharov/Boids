@@ -6,6 +6,7 @@ import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.scenes.scene2d.InputEvent
 import com.badlogic.gdx.scenes.scene2d.InputListener
 import com.badlogic.gdx.scenes.scene2d.Stage
@@ -42,7 +43,7 @@ class MainScreen(
         println("Creating scene")
         addActor(pher)
         addActor(ground)
-        addActor(ants)
+        addActor(ants.apply { debug = true })
         ants.addListener {
             when(it) {
                 is PauseEvent -> {
@@ -95,6 +96,10 @@ class MainScreen(
         //game.batch.projectionMatrix = camera.combined
 
         if ( !pause || oneStep) {
+            if ( oneStep ) {
+                // clear pher
+                pher.reset()
+            }
             scene.act()
             oneStep = false
         }
