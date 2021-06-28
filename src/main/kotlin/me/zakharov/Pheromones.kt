@@ -127,10 +127,13 @@ class Pheromones(
 
     fun print() {
 
-        for(i in 0 until m.buff.capacity()) {
-            print("%02x ".format(m.buff.get(i)))
-            if ( i % m.width == 0 && i != 0 ) {
-                println()
+        m.forEach { x, y, v ->
+            if (x==0) println()
+            when(v) {
+                PherType.food_trail.v -> print("f")
+                PherType.trail.v -> print("t")
+                PherType.debug.v -> print("D")
+                PherType.none.v -> print(" ")
             }
         }
     }

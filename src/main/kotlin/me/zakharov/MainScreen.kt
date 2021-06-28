@@ -33,7 +33,7 @@ class MainScreen(
         setToOrtho(false, w.toFloat(), h.toFloat())
     }
 
-    private val ground by lazy { Ground(Texture("ground-2.png"), ctx, cmd, 80, 80) }
+    private val ground by lazy { Ground(Texture("ground-2.png"), ctx, cmd, 100, 100) }
     private val pher by lazy { Pheromones(ctx, cmd, ground.w, ground.h) }
     private val ants by lazy { Ants(ctx, cmd, ground, pher, game.font) }
     private var pause = false
@@ -43,7 +43,7 @@ class MainScreen(
         println("Creating scene")
         addActor(pher)
         addActor(ground)
-        addActor(ants.apply { debug = true })
+        addActor(ants.apply { debug = false })
         ants.addListener {
             when(it) {
                 is PauseEvent -> {

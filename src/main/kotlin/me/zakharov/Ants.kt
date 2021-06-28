@@ -76,6 +76,9 @@ class Ants(
     private val totalCount = 1
     private val maxSpeed = 10.0f ///< per second
 
+    // hack for cl compile
+    //override fun getDebug() = true
+
     private val random = Random(Calendar.getInstance().timeInMillis)
     @ExperimentalUnsignedTypes
     private val maxQueueSize = ceil(PI * maxSpeed * maxSpeed * angleDegs / 360).toUInt()
@@ -87,8 +90,11 @@ class Ants(
     )
             .also {
                 // WITH_FALLBACK_PATHFINDING=true
-                it.build("-DMAX_QUEUE_SIZE=$maxQueueSize")
-                d("build ants with MAX_QUEUE_SIZE=$maxQueueSize")
+                val opts = mutableListOf("-DMAX_QUEUE_SIZE=$maxQueueSize")
+                if ( debug ) opts.add("-DDEBUG")
+
+                it.build(opts.joinToString(" "))
+                d("build ants with $opts")
             }
     private val kernel = prog.createKernel("ant_kernel").also {
         //it.setArg(1, thres)
@@ -178,7 +184,7 @@ class Ants(
         // kernel's flows
         pheromones.shared.download(cmd)
         pheromones.requestRedraw()
-        debugScanning()
+        //debugScanning()
         //debugObstacles()
 
     }
