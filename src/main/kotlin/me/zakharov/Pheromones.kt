@@ -1,14 +1,17 @@
 package me.zakharov
 
+import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.Batch
+import com.badlogic.gdx.graphics.glutils.ShaderProgram
 import com.badlogic.gdx.math.MathUtils.lerp
 import com.badlogic.gdx.scenes.scene2d.Actor
 import me.apemanzilla.ktcl.CLCommandQueue
 import me.apemanzilla.ktcl.CLContext
 import me.apemanzilla.ktcl.cl10.*
+import java.util.*
 
 //enum PherType { none = 0, trail = 1, food_trail = -1, debug = -2 } ;
 enum class PherType(val v: Float) {
@@ -47,7 +50,7 @@ class Pheromones(
     }
 
     /// opencl stuff
-    private val prog = ctx.createProgramWithSource( this::class.java.getResource("/decay.kernel").readText() )
+    private val prog = ctx.createProgramWithSource( this::class.java.getResource("/kernels/decay.kernel").readText() )
             .also { it.build() }
 
     internal val m = createFloatMatrix2d(w, h)
@@ -63,6 +66,8 @@ class Pheromones(
     private val pixmap = Pixmap(w, h, Pixmap.Format.RGBA8888).apply {
         filter = Pixmap.Filter.NearestNeighbour
     }
+
+    //private val pixmapBuffer = Gdx2DPixmap(m.buff, )
 
     private var tex: Texture? = null
 
@@ -82,8 +87,9 @@ class Pheromones(
         // could we just pass pixmap.pixels.buff directly to cl and read back?
         // draw Matrix on pixmap
         //pixmap = Pixmap(Gdx2DPixmap.newPixmap())
-        tex?.dispose()
-        tex = matrixDisplay(m)
+        //tex?.dispose()
+        //tex = matrixDisplay(m)
+        tex = null
         super.act(delta)
     }
 
@@ -93,6 +99,11 @@ class Pheromones(
         v > 0 -> Pair(Color.rgba8888(0f, 0f, v, 1f), PherType.trail)
         else -> Pair(Color.rgba8888(1f ,1f, 1f, 0.2f), PherType.none)
     }
+
+    val displayShader = ShaderProgram(
+        Gdx.files.internal("shaders/pheromones.vert"),
+        Gdx.files.internal("shaders/pheromones.frag")
+    )
 
     // TODO shader
     private fun matrixDisplay(m: Matrix2d<Float>): Texture {

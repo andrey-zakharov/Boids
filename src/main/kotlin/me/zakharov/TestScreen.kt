@@ -14,7 +14,6 @@ import me.apemanzilla.ktcl.CLContext
 import me.zakharov.Game
 import me.zakharov.Pheromones
 import me.zakharov.events.PauseEvent
-import java.nio.ByteBuffer
 import java.util.*
 import kotlin.random.Random
 
@@ -30,7 +29,7 @@ class TestScreen(
         setToOrtho(false, w.toFloat(), h.toFloat())
     }
 
-    private val ground by lazy { Ground(Texture("ground-2.png"), ctx, cmd, 80, 80) }
+    private val ground by lazy { Ground(Texture("tex/ground-2.png"), ctx, cmd, 80, 80) }
     private val pher by lazy { Pheromones(ctx, cmd, ground.w, ground.h) }
     private val ants by lazy { Ants(ctx, cmd, ground, pher, game.font) }
     private var pause = false

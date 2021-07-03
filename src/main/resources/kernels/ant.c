@@ -52,13 +52,73 @@ int get_array_index(uint w, uint h, float2 cell) {
     return (int)pos.x + (int)pos.y * w;
 }
 
+bool samecell(float2 a, float2 b) {
+    return (int)a.x == (int)b.x && (int)a.y == (int)b.y;
+}
+bool isequali(uint2 a, uint2 b) {
+    return a.x == b.x && a.y == b.y;
+}
+
+float2 bfs_visit_cell_ground(bool emp, float2 cell_vec, enum CellType ground) {
+    // accumulate all changes from found cell
+    // real kernel is here TBD compose it
+    float2 force = { 0., 0. };
+    switch(ground) {
+        case empty: return force;
+        case nest:
+            force = -cell_vec;
+            if ( !emp ) force *= (float2)-1.;
+            break;
+
+        case food:
+            force = cell_vec;
+            if ( !emp ) force *= (float2)-1.;
+            break;
+        case obstacle:
+//                obstacles_found++;
+            force = cell_vec;
+                        //vel = convert_float2(origin - cp);
+                        //vel = (float2)(0., 0.);
+                        // skip further bfs
+                        // to prevent scanning food behind walls
+            break;
+    }
+
+    float len = length(force); // from 1 .. 7
+    if ( len > 0) return (force / len);
+    return force;
+}
+
+float2 bfs_visit_cell_pheromones(bool emp, float2 cell_vec, float ph) {
+    float2 f = { 0., 0. };
+    if ( ph == none ) return f;
+
+    if ( ph < 0 ) { // food trail
+        if ( emp ) { // power boost toward food!
+            f = cell_vec / (float2)-ph;
+            printf("Found food trail force = %f, %f\n", f.x, f.y);
+        }
+        // else go according to simple trails
+        //force = iorigin - fcp;
+    } else { // trail
+        if ( emp ) {
+            f = -cell_vec * (float2)ph;
+
+        } else {
+            f = cell_vec;
+        }
+    }
+
+    return f;
+}
+
 __kernel
 void ant_kernel(
     float delta,
     float max_speed,
     uint w,
     uint h,
-    __global __read_only uchar*     groundArray,
+    __global uchar*     groundArray,
     __global float*     pheromonesArray,
     __global float2*    coords,
     __global float2*    velocities,
@@ -68,17 +128,54 @@ void ant_kernel(
     float accel = max_speed / 10.;
 
     int index = get_global_id(0);
-    // test 1
-    // coords[index] = wrap_bounds(coords[index] + (float2)(1.0, 1.0), w, h);
-    //velocities[index] = velocities[index]  + max_speed;
-    //    return;
-    float2 pos = coords[index];
-    float2 vel = velocities[index];
+    // adapter to be done
+#define pos coords[index]
+#define vel velocities[index]
+#define ant_state state[index]
+
+    //float2 pos = coords[index];
+    //float2 vel = velocities[index];
     //printf(" = STEP pos=(%.3f, %.3f) vel=(%.3f, %.3f)\n", pos.x, pos.y, vel.x, vel.y);
-    uchar out_state = state[index];
-    bool emp = state[index] == 0;
+    //uchar out_state = state[index];
+
+    bool emp = ant_state == empty;
     // check step
-    CellType groundAhead = groundArray[get_array_index(pos + vel * delta, w, h)];
+    float2 next_pos = pos + vel * delta;
+    if ( !samecell(next_pos, pos) ) {
+        enum CellType groundAhead = groundArray[get_array_index(w, h, next_pos)];
+        switch( groundAhead ) {
+            case obstacle:
+                vel = -vel * (float2)0.1;
+                return;
+            case food:
+                if ( emp ) {
+                    pos = next_pos;
+                    vel = (float2)0.;
+                    ant_state = full;
+                    groundArray[get_array_index(w, h, next_pos)] = empty;
+                    // TBD event ant.TakeEvent
+                    return;
+                } else {
+                    vel = -vel * (float2)0.1;
+                    return;
+                }
+                break;
+            case nest:
+                if ( !emp ) {
+                    pos = next_pos;
+                    vel = (float2)0.;
+                    ant_state = empty;
+                    // TBD callback to nest nest.TakeEvent
+                    return;
+                } else {
+                    vel = -vel * (float2)0.1;
+                    return;
+                }
+                break;
+            default:
+                break;
+        }
+    }
     //switch()
 
     // random fluctuation
@@ -92,7 +189,7 @@ void ant_kernel(
     uint2 origin = cells.queue[0];
     // and center of current cell
     float2 iorigin = convert_float2(origin) + (float2)0.5;
-    size_t obstacles_found = 0;
+//    size_t obstacles_found = 0;
     float2 vel_acc = (float2)0.;
 
     /// BFS
@@ -101,8 +198,9 @@ void ant_kernel(
         //printf("= looking around cell %d, %d\n", cp.x, cp.y);
 
         float2 fcp = convert_float2(cp) + (float2)0.5;
+        float2 cell_vec = fcp - iorigin;
 
-
+        /// get_valid_cells
         // neighbours
         // first check by min angle, but at least get one with max dot product
         size_t added = 0;
@@ -141,45 +239,29 @@ void ant_kernel(
 #endif
 
         //printf("|| end looking around cell\n");
-        if ( cp.x == origin.x && cp.y == origin.y ) {
+        if ( isequali(cp.x, origin.x) ) {
             continue;
         }
 
-        float2 force = {0., 0.};
-        // accumulate all changes from found cell
-        switch(groundArray[get_array_index(w, h, fcp)]) {
-            case nest:
-                break;
+        float2 forceFromGround = bfs_visit_cell_ground(emp, cell_vec, groundArray[get_array_index(w, h, fcp)]);
+        float2 forceFromPheromon = bfs_visit_cell_pheromones(emp, cell_vec, pheromonesArray[get_array_index(w, h, fcp)]);
 
-            case food:
-                force = fcp - iorigin;
-                break;
-            case obstacle:
-                obstacles_found++;
-                force = iorigin - fcp;
-                            //vel = convert_float2(origin - cp);
-                            //vel = (float2)(0., 0.);
-                            // skip further bfs
-                            // to prevent scanning food behind walls
-                break;
-        }
-        float len = length(force); // from 1 .. 7
 #ifdef DEBUG
-        //if ( len > 0) printf("forced: %0.3f\n", len);
-#endif
-        if ( len > 0) vel_acc += (force / len);
+        if ( length(forceFromGround) > 0)
+            printf("forced from ground: Vector(%0.5f,\t%0.5f\t).mod=%0.5f\n",
+                forceFromGround.x, forceFromGround.y, length(forceFromGround));
 
-        /*if ( pheromones[ cp.x + cp.y * w ] > 0 ) {
-            vel += 3.f / vel - convert_float2(cp - origin);
-        }*/
+#endif
+        if ( length(forceFromPheromon) > 0)
+            printf("forced from phers: Vector(%0.5f,\t%0.5f\t).mod=%0.5f\n",
+                forceFromPheromon.x, forceFromPheromon.y, length(forceFromPheromon));
+        vel_acc += forceFromGround; // obstacles_found
+        vel_acc += forceFromPheromon;
     }
 
-    //if (obstacles_found > 0) {
-    vel += vel_acc ;//*(float2)(2.)  / obstacles_found;
-        //printf("obstacles: %d vel addition %0.5f, %0.5f\n", obstacles_found, vel_acc.x, vel_acc.y);
-    //}
 
-    out_state = obstacles_found; // ? obstacle : empty;
+    vel += vel_acc ;//*(float2)(2.)  / obstacles_found;
+
 
 #ifdef DEBUG
     for( size_t i = 0; i < cells.pos_tail; i++ ) {
@@ -188,7 +270,9 @@ void ant_kernel(
     }
 #endif
 
-    pheromonesArray[get_array_index(w, h, pos)] = trail;
+    enum PherType trailToLeave = trail;
+    if ( !emp ) trailToLeave = food_trail;
+    pheromonesArray[get_array_index(w, h, pos)] = trailToLeave;
     //debug queue
 
     float len = length(vel);
@@ -205,14 +289,9 @@ void ant_kernel(
         vel = normalize(vel) * max_speed;
     }
 
-    velocities[index] = vel;
-    float2 next_coords = wrap_bounds(pos + velocities[index] * delta, w, h);
-    uint2 next_pos = convert_uint2(next_coords);
-    //if ( ground[ next_pos.x + next_pos.y * w ] == obstacle ) {
-    //    velocities[index] = -velocities[index];
-//
-    //} else {
-        coords[index] = next_coords;
+    //velocities[index] = vel;
+    pos = wrap_bounds(pos + vel * delta, w, h);
     //}
-    state[index] = out_state;
+    //state[index] = out_state;
 }
+

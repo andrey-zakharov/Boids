@@ -21,11 +21,18 @@ import org.lwjgl.BufferUtils
 import java.util.*
 import kotlin.math.PI
 import kotlin.math.ceil
+import kotlin.system.measureTimeMillis
 
 data class AntConfig(
     val angleDegs: Float = 30f
 )
-
+enum class AntState(val value: Byte) {
+    empty(0), full(1);
+    companion object {
+        private val map = values().associateBy(AntState::value)
+        fun fromValue(type: Byte) = map[type] ?: throw IllegalArgumentException()
+    }
+}
 data class Ant(val conf: AntConfig, val pos: Vector2, val vel: Vector2) {
 
     // static config
@@ -66,6 +73,7 @@ class Ants(
     private val pheromones: Pheromones,
     private val font: BitmapFont,
     // config
+    private val totalCount: Int = 1,
     private val angleDegs: Float = 30f ///< angle of detection for ant in degrees
 ) : Actor() {
 
@@ -73,7 +81,7 @@ class Ants(
     private val w = ground.w
     private val h = ground.h
 
-    private val totalCount = 1
+
     private val maxSpeed = 10.0f ///< per second
 
     // hack for cl compile
@@ -84,9 +92,9 @@ class Ants(
     private val maxQueueSize = ceil(PI * maxSpeed * maxSpeed * angleDegs / 360).toUInt()
 
     private val prog = ctx.createProgramWithSource(
-        this::class.java.getResource("/queue.c").readText(),
+        this::class.java.getResource("/kernels/queue.c").readText(),
         PherType.clCode(),
-        this::class.java.getResource("/ant.c").readText()
+        this::class.java.getResource("/kernels/ant.c").readText()
     )
             .also {
                 // WITH_FALLBACK_PATHFINDING=true
@@ -114,7 +122,8 @@ class Ants(
     //private val outPheromones = ctx.createBuffer(pheromones.size)
 
     //private val shapeRenderer = ShapeRenderer()
-    private val tex = Texture("carpenter-ant-small.png")
+    private val tex = Texture("tex/carpenter-ant-small.png")
+    private var actlast: Long = 0
 
 
     init {
@@ -144,49 +153,52 @@ class Ants(
  */
 
     override fun act(delta: Float) {
-        super.act(delta)
-        //val r = (max_speed * delta)
-        //val s = ceil(PI * r * r * angle_degs / 360)
+        actlast = measureTimeMillis {
+            super.act(delta)
+            //val r = (max_speed * delta)
+            //val s = ceil(PI * r * r * angle_degs / 360)
 
-        with(kernel) {
-            var a = 0
-            setArg( a++, delta)
-            setArg( a++, maxSpeed)
-            setArg( a++, w)
-            setArg( a++, h)
-            setArg( a++, ground.shared.remoteBuff)
-            setArg( a++, pheromones.shared.remoteBuff)
-            setArg( a++, posCLBuff)
-            setArg( a++, velCLBuff)
-            setArg( a++, stateCLBuff)
-//            setArg( a++, outPosCLBuff)
+            with(kernel) {
+                var a = 0
+                setArg( a++, delta)
+                setArg( a++, maxSpeed)
+                setArg( a++, w)
+                setArg( a++, h)
+                setArg( a++, ground.shared.remoteBuff)
+                setArg( a++, pheromones.shared.remoteBuff)
+                setArg( a++, posCLBuff)
+                setArg( a++, velCLBuff)
+                setArg( a++, stateCLBuff)
+    //            setArg( a++, outPosCLBuff)
+            }
+
+            /// beforeNDRun()
+
+            with(cmd) {
+                enqueueWriteBuffer(posBuff, posCLBuff)
+                enqueueWriteBuffer(velBuff, velCLBuff)
+                enqueueWriteBuffer(from = stateBuff, to = stateCLBuff)
+            }
+
+
+
+            val ev = cmd.enqueueNDRangeKernel(kernel, totalCount.toLong())
+
+            cmd.finish()
+
+            /// afterNDRun
+            with(cmd) {
+                enqueueReadBuffer(from = posCLBuff, to = posBuff)
+                enqueueReadBuffer(from = velCLBuff, to = velBuff)
+                enqueueReadBuffer(from = stateCLBuff, to = stateBuff)
+            }
+            // if ground does not change?
+            // kernel's flows
+            pheromones.shared.download(cmd)
+            pheromones.requestRedraw()
+            //debugScanning()
+            //debugObstacles()
         }
-
-        /// beforeNDRun()
-
-        with(cmd) {
-            enqueueWriteBuffer(posBuff, posCLBuff)
-            enqueueWriteBuffer(velBuff, velCLBuff)
-            enqueueWriteBuffer(from = stateBuff, to = stateCLBuff)
-        }
-
-
-
-        cmd.enqueueNDRangeKernel(kernel, totalCount.toLong())
-        cmd.finish()
-
-        /// afterNDRun
-        with(cmd) {
-            enqueueReadBuffer(from = posCLBuff, to = posBuff)
-            enqueueReadBuffer(from = velCLBuff, to = velBuff)
-            enqueueReadBuffer(from = stateCLBuff, to = stateBuff)
-        }
-        // kernel's flows
-        pheromones.shared.download(cmd)
-        pheromones.requestRedraw()
-        //debugScanning()
-        //debugObstacles()
-
     }
 
     fun debugObstacles() {
@@ -240,11 +252,7 @@ class Ants(
         val scaleStageY = stage.height / h.toFloat()
 
         batch?.let {
-            val p = posBuff.asFloatBuffer()
-            val v = velBuff.asFloatBuffer()
-            for ( i in 0 until p.capacity() / 2 ) {
-                val pos = Vector2(p[2*i] * scaleStageX, (h - p[2*i+1]) * scaleStageY )
-                val vel = Vector2(v[2*i], v[2*i+1])
+            forEach { pos, vel, st ->
 
                 // pos2world
                 it.draw(
@@ -253,14 +261,19 @@ class Ants(
                     pos.y - tex.height / 2f,
                     tex.width / 2f, tex.height / 2f,
                     tex.width.toFloat(), tex.height.toFloat(),
-                    1f, 1f, 90 - vel.angleDeg(),
+                    1f, 1f, 90+ vel.angleDeg(),
                     0, 0,
                     tex.width, tex.height,
                     false, true
                 )
 
                 //font.draw(batch, "%.2fx%.2f".format(p[2*i], p[2*i+1]), pos.x, pos.y + 20f )
-                font.draw(batch, "%.2fx%.2f".format(vel.x, vel.y), pos.x, pos.y + 20f )
+                // if this ant debug
+                // selected
+//                font.draw(batch, "%.2fx%.2f".format(vel.x, vel.y), pos.x, pos.y + 20f )
+//
+//                font.draw(batch, actlast.toString(), pos.x - 10f, pos.y - 20f)
+//                font.draw(batch, st.toString(), pos.x + 10f, pos.y - 20f)
 
 
             }
@@ -279,23 +292,27 @@ class Ants(
         //}
     }
 
-    fun forEach(block: (pos: Vector2, vel: Vector2) -> Unit) {
+    fun forEach(block: (pos: Vector2, vel: Vector2, state: AntState) -> Unit) {
         val scaleStageX = stage.width / w.toFloat()
         val scaleStageY = stage.height / h.toFloat()
         val p = posBuff.asFloatBuffer()
         val v = velBuff.asFloatBuffer()
-        for ( i in 0 until p.capacity() / 2 ) {
+        val s = stateBuff
+        for ( i in 0 until totalCount ) {
             val pos = Vector2(p[2 * i] * scaleStageX, (h - p[2 * i + 1]) * scaleStageY)
             val vel = Vector2(v[2 * i] * scaleStageX, -v[2 * i + 1] * scaleStageY)
-            block(pos, vel)
+            val st = AntState.fromValue(s[i])
+            block(pos, vel, st)
         }
     }
 
     override fun drawDebug(shapes: ShapeRenderer?) {
         super.drawDebug(shapes)
-        forEach { pos, vel ->
+        forEach { pos, vel, st ->
             Ant(AntConfig(angleDegs), pos, vel).invoke(shapes)
         }
+
+
     }
 
 }

@@ -8,8 +8,8 @@ import com.badlogic.gdx.scenes.scene2d.Actor
 import me.apemanzilla.ktcl.CLCommandQueue
 import me.apemanzilla.ktcl.CLContext
 import me.apemanzilla.ktcl.cl10.KernelAccess
-import me.apemanzilla.ktcl.cl10.enqueueWriteBuffer
 import me.zakharov.createByteMatrix2d
+import me.zakharov.d
 import me.zakharov.share
 
 //@ExportTo(opencl)
@@ -32,7 +32,6 @@ class Ground(
         val w: Int, val h: Int
 ) : Actor() {
 
-    val d: (m: Any) -> Unit = ::println
 
     private val m = createByteMatrix2d(w, h)
     internal val shared = ctx.share(m.buff, KernelAccess.ReadOnly)
@@ -43,8 +42,6 @@ class Ground(
     internal val stats: Map<CellType, Int> = _stats// shared flow
 
     init {
-        d("init ground")
-
         groundTexture.textureData.prepare()
         val px = groundTexture.textureData.consumePixmap()
         val cpx = Pixmap(w, h, Pixmap.Format.RGBA8888).apply {
@@ -66,29 +63,16 @@ class Ground(
                 m[x, y] = cellType.code
                 cpx.drawPixel(x, y, Color.rgba8888(cellType.color))
                 _stats[cellType] = _stats.getOrDefault(cellType, 0) + 1
-                //when {
-                    //cellType == CellType.Nest ->
-
-                //}
-                //print(buff[x, y])
             }
-            //println(y)
         }
-        println(stats)
+        d(stats)
         groundTexture.textureData.disposePixmap()
         tex = Texture(cpx)
         shared.upload(cmd)
     }
-//
-//    override  fun act(delta: Float) {
-//        super.act(delta)
-//
-//    }
 
     override fun draw(batch: Batch?, parentAlpha: Float) {
         super.draw(batch, parentAlpha)
-        batch?.let {
-            it.draw(tex, 0f, 0f, stage.width, stage.height)
-        }
+        batch?.draw(tex, 0f, 0f, stage.width, stage.height)
     }
 }

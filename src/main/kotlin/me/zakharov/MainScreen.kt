@@ -6,7 +6,6 @@ import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.scenes.scene2d.InputEvent
 import com.badlogic.gdx.scenes.scene2d.InputListener
 import com.badlogic.gdx.scenes.scene2d.Stage
@@ -17,7 +16,6 @@ import me.apemanzilla.ktcl.CLContext
 import me.zakharov.Game
 import me.zakharov.Pheromones
 import me.zakharov.events.PauseEvent
-import java.nio.ByteBuffer
 import java.util.*
 import kotlin.random.Random
 
@@ -33,7 +31,10 @@ class MainScreen(
         setToOrtho(false, w.toFloat(), h.toFloat())
     }
 
-    private val ground by lazy { Ground(Texture("ground-2.png"), ctx, cmd, 100, 100) }
+    private val ground by lazy { Ground(Texture(
+//        "tex/ground-2.png"
+        "tex/ground-test.png"
+    ), ctx, cmd, w / 50, h / 50) }
     private val pher by lazy { Pheromones(ctx, cmd, ground.w, ground.h) }
     private val ants by lazy { Ants(ctx, cmd, ground, pher, game.font) }
     private var pause = false

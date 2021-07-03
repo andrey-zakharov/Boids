@@ -53,7 +53,6 @@ class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
     }
 
 }
-
 fun main() {
 
 
@@ -71,6 +70,7 @@ fun main() {
             val config = Lwjgl3ApplicationConfiguration().apply {
                 setTitle("Ants")
                 setWindowedMode(1024, 768)
+                setMaximized(true)
             }
             Lwjgl3Application(Game(it), config).logLevel = Application.LOG_DEBUG
         }

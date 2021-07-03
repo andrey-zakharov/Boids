@@ -12,7 +12,7 @@ class Saxpy(
         private val alpha: Float = 1.0f
 ) {
 
-    private val prog = ctx.createProgramWithSource( this::class.java.getResource("/saxpy.kernel").readText())
+    private val prog = ctx.createProgramWithSource( this::class.java.getResource("/kernels/saxpy.kernel").readText())
             .also { it.build() }
     private val inA = ctx.createBuffer(5 * FLOAT_SIZE.toLong()).also { println(it) }
     private val inB = ctx.createBuffer(5 * FLOAT_SIZE.toLong()).also { println(it) }
