@@ -1,5 +1,6 @@
 package me.zakharov
 import com.badlogic.gdx.Application
+import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration
 import com.badlogic.gdx.graphics.g2d.BitmapFont
@@ -32,6 +33,11 @@ class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
     val maxItemsY = device.maxWorkItemSizes[1]//, maxItemsZ)
 
     override fun create() {
+        val ver = Gdx.app.graphics.glVersion
+        d("GL version: ${ver.majorVersion}.${ver.minorVersion}")
+        d("GL renderer: ${ver.vendorString} ${ver.rendererString}")
+        Gdx.graphics.setForegroundFPS(0)
+        Gdx.graphics.setVSync(false)
         val durMs = kotlin.system.measureTimeMillis {
             addScreen(MainScreen(this, ctx, cmd).apply {
 
@@ -40,6 +46,7 @@ class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
             super.create()
         }
         d("Created Game: $durMs ms")
+
     }
 
 //    fun run() {
@@ -71,6 +78,7 @@ fun main() {
                 setTitle("Ants")
                 setWindowedMode(1024, 768)
                 setMaximized(true)
+                setForegroundFPS(0)
             }
             Lwjgl3Application(Game(it), config).logLevel = Application.LOG_DEBUG
         }

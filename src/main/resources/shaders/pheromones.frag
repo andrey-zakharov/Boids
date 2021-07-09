@@ -8,9 +8,13 @@ uniform sampler2D u_texture;
 uniform mat4 u_projTrans;
 
 void main() {
-        vec3 color = texture2D(u_texture, v_texCoords).rgb;
-        float gray = (color.r + color.g + color.b) / 3.0;
-        vec3 grayscale = vec3(gray);
+        float pher = float( texture2D(u_texture, v_texCoords) );
+        vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
+        if (pher < 0) {
+            color = vec4(0, 1., 0, -pher);
+        } else if ( pher > 0 ) {
+            color = vec4(0, 0, 1., pher);
+        }
 
-        gl_FragColor = vec4(grayscale, 1.0);
+        gl_FragColor = color;
 }

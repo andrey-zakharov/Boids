@@ -1,5 +1,5 @@
-#ifndef MAXLOOKUPANGLE
-    #define MAXLOOKUPANGLE 30.
+#ifndef MAX_LOOKUP_ANGLE
+    #define MAX_LOOKUP_ANGLE 30.
 #endif
 
 __constant float2 d[8] = {
@@ -30,7 +30,7 @@ float2 wrap_bounds(float2 pos, uint w, uint h) {
 /// origin of ant, cp - current point, np - next point to check
 bool check_valid(const float2 origin, const float2 vel, const float2 np) {
 
-    float min_dot = cos(radians(MAXLOOKUPANGLE));
+    float min_dot = cos(radians(MAX_LOOKUP_ANGLE));
     const float nextlen = length( np - origin );
     float maxlen = length(vel);
     // special case when velocity is zero
@@ -96,7 +96,7 @@ float2 bfs_visit_cell_pheromones(bool emp, float2 cell_vec, float ph) {
     if ( ph < 0 ) { // food trail
         if ( emp ) { // power boost toward food!
             f = cell_vec / (float2)-ph;
-            printf("Found food trail force = %f, %f\n", f.x, f.y);
+            //printf("Found food trail force = %f, %f\n", f.x, f.y);
         }
         // else go according to simple trails
         //force = iorigin - fcp;
@@ -250,11 +250,10 @@ void ant_kernel(
         if ( length(forceFromGround) > 0)
             printf("forced from ground: Vector(%0.5f,\t%0.5f\t).mod=%0.5f\n",
                 forceFromGround.x, forceFromGround.y, length(forceFromGround));
-
-#endif
         if ( length(forceFromPheromon) > 0)
             printf("forced from phers: Vector(%0.5f,\t%0.5f\t).mod=%0.5f\n",
                 forceFromPheromon.x, forceFromPheromon.y, length(forceFromPheromon));
+#endif
         vel_acc += forceFromGround; // obstacles_found
         vel_acc += forceFromPheromon;
     }
@@ -270,9 +269,11 @@ void ant_kernel(
     }
 #endif
 
-    enum PherType trailToLeave = trail;
-    if ( !emp ) trailToLeave = food_trail;
-    pheromonesArray[get_array_index(w, h, pos)] = trailToLeave;
+    if (random(pos+vel) > 0.7) {
+        enum PherType trailToLeave = trail;
+        if ( !emp ) trailToLeave = food_trail;
+        pheromonesArray[get_array_index(w, h, pos)] = trailToLeave;
+    }
     //debug queue
 
     float len = length(vel);
@@ -290,7 +291,7 @@ void ant_kernel(
     }
 
     //velocities[index] = vel;
-    pos = wrap_bounds(pos + vel * delta, w, h);
+    pos = wrap_bounds(pos + vel / 10 /* delta * 2*/, w, h);
     //}
     //state[index] = out_state;
 }

@@ -21,6 +21,7 @@ import org.lwjgl.BufferUtils
 import java.util.*
 import kotlin.math.PI
 import kotlin.math.ceil
+import kotlin.math.cos
 import kotlin.system.measureTimeMillis
 
 data class AntConfig(
@@ -61,7 +62,6 @@ data class Ant(val conf: AntConfig, val pos: Vector2, val vel: Vector2) {
     }
 }
 
-internal fun Vector2.flipY() = Vector2(this.x, -this.y)
 internal operator fun Vector2.times(times: Float) = Vector2(this.x * times, this.y * times)
 internal operator fun Vector2.plus(pos: Vector2) = Vector2(this.x + pos.x, this.y + pos.y)
 internal fun Vector2.rotatedDeg(deg: Float): Vector2 = Vector2(this).rotateDeg(deg)
@@ -73,7 +73,7 @@ class Ants(
     private val pheromones: Pheromones,
     private val font: BitmapFont,
     // config
-    private val totalCount: Int = 1,
+    private val totalCount: Int = 10,
     private val angleDegs: Float = 30f ///< angle of detection for ant in degrees
 ) : Actor() {
 
@@ -82,7 +82,7 @@ class Ants(
     private val h = ground.h
 
 
-    private val maxSpeed = 10.0f ///< per second
+    private val maxSpeed = 20.0f ///< per second
 
     // hack for cl compile
     //override fun getDebug() = true
@@ -98,7 +98,7 @@ class Ants(
     )
             .also {
                 // WITH_FALLBACK_PATHFINDING=true
-                val opts = mutableListOf("-DMAX_QUEUE_SIZE=$maxQueueSize")
+                val opts = mutableListOf("-DMAX_QUEUE_SIZE=$maxQueueSize -DMAX_LOOKUP_ANGLE=$angleDegs")
                 if ( debug ) opts.add("-DDEBUG")
 
                 it.build(opts.joinToString(" "))
@@ -128,12 +128,21 @@ class Ants(
 
     init {
 
+        val nest = ground.report.getMedian()
+        println("Nest = $nest")
         val p = posBuff.asFloatBuffer()
         val v = velBuff.asFloatBuffer()
 
+        val angleDiff: Float = PI.toFloat() * 2 / totalCount
+        val tempVector = Vector2(50f, 0f)
+
         for (i in 0 until totalCount) {
-            p.put(i * 2, random.nextFloat() * w)
-            p.put(i * 2 + 1, random.nextFloat() * h)
+
+//            p.put(i * 2, random.nextFloat() * w)
+//            p.put(i * 2 + 1, random.nextFloat() * h)
+            val coords = tempVector + nest
+            p.put(i * 2, coords.x)
+            p.put(i * 2 + 1, coords.y)
 
             //val vel = Vector2(max_speed, 0f).rotateRad(2*PI.toFloat()*random.nextFloat())
             
@@ -143,6 +152,7 @@ class Ants(
             v.put( i * 2 + 1, 0f)
             //v.put( i * 2, 0f)
             //v.put( i * 2 + 1, max_speed)
+            tempVector.rotateRad(angleDiff)
         }
     }
 /*
@@ -227,7 +237,7 @@ class Ants(
             val c = Vector2(pos[0], pos[1])
             val origin = Vector2(pos[0].toInt() + 0.5f, pos[1].toInt() + 0.5f)
             val v = Vector2(vel[0], vel[1]).setLength(1f)
-            val minDot = kotlin.math.cos(23.0 * PI / 180f)
+            val minDot = cos(23.0 * PI / 180f)
 
             warn("pos = ${pos[0]}x${pos[1]} ($origin)")
             warn("vel = ${vel[0]}x${vel[1]}")
@@ -248,9 +258,6 @@ class Ants(
 
     override fun draw(batch: Batch?, parentAlpha: Float) {
         super.draw(batch, parentAlpha)
-        val scaleStageX = stage.width / w.toFloat()
-        val scaleStageY = stage.height / h.toFloat()
-
         batch?.let {
             forEach { pos, vel, st ->
 
@@ -311,8 +318,5 @@ class Ants(
         forEach { pos, vel, st ->
             Ant(AntConfig(angleDegs), pos, vel).invoke(shapes)
         }
-
-
     }
-
 }

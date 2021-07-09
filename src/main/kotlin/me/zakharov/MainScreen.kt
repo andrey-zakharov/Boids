@@ -34,7 +34,7 @@ class MainScreen(
     private val ground by lazy { Ground(Texture(
 //        "tex/ground-2.png"
         "tex/ground-test.png"
-    ), ctx, cmd, w / 50, h / 50) }
+    ), ctx, cmd, w / 2, h / 2) }
     private val pher by lazy { Pheromones(ctx, cmd, ground.w, ground.h) }
     private val ants by lazy { Ants(ctx, cmd, ground, pher, game.font) }
     private var pause = false
@@ -42,8 +42,8 @@ class MainScreen(
 
     val scene = Stage(FitViewport(w.toFloat(), h.toFloat(), camera), game.batch).apply {
         println("Creating scene")
-        addActor(pher)
         addActor(ground)
+        addActor(pher)
         addActor(ants.apply { debug = false })
         ants.addListener {
             when(it) {

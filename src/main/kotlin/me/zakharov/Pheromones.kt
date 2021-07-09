@@ -1,17 +1,16 @@
 package me.zakharov
 
 import com.badlogic.gdx.Gdx
-import com.badlogic.gdx.graphics.Color
-import com.badlogic.gdx.graphics.Pixmap
-import com.badlogic.gdx.graphics.Texture
+import com.badlogic.gdx.graphics.*
 import com.badlogic.gdx.graphics.g2d.Batch
+import com.badlogic.gdx.graphics.glutils.FloatTextureData
 import com.badlogic.gdx.graphics.glutils.ShaderProgram
 import com.badlogic.gdx.math.MathUtils.lerp
 import com.badlogic.gdx.scenes.scene2d.Actor
 import me.apemanzilla.ktcl.CLCommandQueue
 import me.apemanzilla.ktcl.CLContext
 import me.apemanzilla.ktcl.cl10.*
-import java.util.*
+import java.nio.ByteBuffer
 
 //enum PherType { none = 0, trail = 1, food_trail = -1, debug = -2 } ;
 enum class PherType(val v: Float) {
@@ -35,17 +34,18 @@ class Pheromones(
         internal val h: Int
 ) : Actor() {
 
-    //suspend fun mapIndexed(buff: Matrix2d<out T>, (x:Int, y: Int, v:T) -> Any? ) {
-//
-   // }
-    private val alpha: Float = 0.75f // in 1 sec
+    private val alpha: Float = 0.95f // in 1 sec
     private val thres: Float = 0.1f
 
+    private val shaderProgram = ShaderProgram(
+        Gdx.files.internal("shaders/pheromones.vert"),
+        Gdx.files.internal("shaders/pheromones.frag")
+    ).apply {
+        if ( !isCompiled ) {error("shader compile failed: $log")}
+    }
 
     fun reset(): Boolean {
         m.clear()
-        tex?.dispose()
-        tex = null
         return true
     }
 
@@ -63,18 +63,20 @@ class Pheromones(
     }
     /// end opencl stuff
 
-    private val pixmap = Pixmap(w, h, Pixmap.Format.RGBA8888).apply {
-        filter = Pixmap.Filter.NearestNeighbour
+    internal class WrappedFloatTextureData(w: Int, h: Int, private val buff: ByteBuffer)
+        : FloatTextureData(w, h, GL30.GL_R32F, GL30.GL_RED, 0, false) {
+        override fun consumeCustomData(target: Int) {
+            Gdx.gl.glTexImage2D(target, 0, GL30.GL_R32F, width, height, 0, GL30.GL_RED, GL20.GL_FLOAT, buff)
+        }
     }
-
-    //private val pixmapBuffer = Gdx2DPixmap(m.buff, )
-
-    private var tex: Texture? = null
+    private val wrappedTexData = WrappedFloatTextureData(w, h, m.buff)
+    private val glTex = Texture(wrappedTexData).apply {
+        setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest)
+    }
 
     override fun act(delta: Float) {
         with(kernel) {
             setArg(0, lerp(1f, alpha, delta))
-
         }
 
         shared.upload(cmd)
@@ -83,57 +85,18 @@ class Pheromones(
         cmd.finish()
 
         shared.download(cmd)
-
-        // could we just pass pixmap.pixels.buff directly to cl and read back?
-        // draw Matrix on pixmap
-        //pixmap = Pixmap(Gdx2DPixmap.newPixmap())
-        //tex?.dispose()
-        //tex = matrixDisplay(m)
-        tex = null
         super.act(delta)
-    }
-
-    private fun map2color(v: Float): Pair<Int, PherType> = when {
-        v < -1 -> Pair(Color.rgba8888(-v - 1, 0f, 0f, 1f), PherType.debug)
-        v < 0 -> Pair(Color.rgba8888(0f, -v, 0f, 1f), PherType.food_trail)
-        v > 0 -> Pair(Color.rgba8888(0f, 0f, v, 1f), PherType.trail)
-        else -> Pair(Color.rgba8888(1f ,1f, 1f, 0.2f), PherType.none)
-    }
-
-    val displayShader = ShaderProgram(
-        Gdx.files.internal("shaders/pheromones.vert"),
-        Gdx.files.internal("shaders/pheromones.frag")
-    )
-
-    // TODO shader
-    private fun matrixDisplay(m: Matrix2d<Float>): Texture {
-
-        //val stats = HashMap<PherType, Int>()
-
-        pixmap.pixels.apply {
-            for (y in 0 until pixmap.height) {
-                val off = y * pixmap.width * 4
-                for( x in 0 until pixmap.width) {
-                    val idx = off + x * 4
-                    //val c = (abs(buff[x, y]) * 0xff).toByte() // 0 .. 1?
-                    // its just a tranformation .map { colors
-                    val (c, ty) = map2color(m[x, y])
-                    //stats[ty] = stats.getOrDefault(ty, 0) + 1
-                    this.putInt(idx, c)
-                }
-            }
-        }
-        //d("Redraw $stats")
-        return Texture(pixmap).apply {
-            setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest)
-        }
     }
 
     override fun draw(batch: Batch?, parentAlpha: Float) {
         super.draw(batch, parentAlpha)
-        if ( tex == null ) tex = matrixDisplay(m)
 
-        batch?.draw(tex, 0f, 0f, stage.width, stage.height)
+        batch?.let { b ->
+            b.shader = shaderProgram
+            glTex.load(wrappedTexData)
+            b.draw(glTex, 0f, 0f, stage.width, stage.height)
+            b.shader = null
+        }
     }
 
     fun print() {
@@ -150,7 +113,7 @@ class Pheromones(
     }
 
     fun requestRedraw() {
-        tex?.dispose()
-        tex = null
+        //tex?.dispose()
+        //tex = null
     }
 }
