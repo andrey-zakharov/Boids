@@ -15,6 +15,7 @@ repositories {
     // You can declare any Maven/Ivy/file repository here.
     jcenter()
     maven("https://oss.sonatype.org/content/repositories/snapshots/")
+    mavenCentral()
 }
 val lwjglNatives = "natives-windows"
 val lwjglVersion = "3.2.3"
@@ -24,6 +25,7 @@ val gdxVersion = "1.10.0"
 dependencies {
     implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
+    implementation("org.jetbrains.kotlinx", "kotlinx-coroutines-core", "1.5.0")
 
     implementation(files("../ktcl/build/libs/ktcl-0.3.1.jar"))
 

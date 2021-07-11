@@ -31,7 +31,7 @@ class TestScreen(
 
     private val ground by lazy { Ground(Texture("tex/ground-2.png"), ctx, cmd, 80, 80) }
     private val pher by lazy { Pheromones(ctx, cmd, ground.w, ground.h) }
-    private val ants by lazy { Ants(ctx, cmd, ground, pher, game.font) }
+    private val ants by lazy { Ants(AntsConfig(game.font), ctx, cmd, ground, pher) }
     private var pause = false
 
     val scene = Stage(FitViewport(w.toFloat(), h.toFloat(), camera), game.batch).apply {

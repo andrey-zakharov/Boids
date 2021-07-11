@@ -35,7 +35,7 @@ class Pheromones(
 ) : Actor() {
 
     private val alpha: Float = 0.95f // in 1 sec
-    private val thres: Float = 0.1f
+    private val thres: Float = 0.01f
 
     private val shaderProgram = ShaderProgram(
         Gdx.files.internal("shaders/pheromones.vert"),

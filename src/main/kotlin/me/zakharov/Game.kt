@@ -36,7 +36,7 @@ class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
         val ver = Gdx.app.graphics.glVersion
         d("GL version: ${ver.majorVersion}.${ver.minorVersion}")
         d("GL renderer: ${ver.vendorString} ${ver.rendererString}")
-        Gdx.graphics.setForegroundFPS(0)
+        //Gdx.graphics.setForegroundFPS(0)
         Gdx.graphics.setVSync(false)
         val durMs = kotlin.system.measureTimeMillis {
             addScreen(MainScreen(this, ctx, cmd).apply {

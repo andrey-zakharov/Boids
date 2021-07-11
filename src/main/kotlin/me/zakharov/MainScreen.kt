@@ -10,6 +10,10 @@ import com.badlogic.gdx.scenes.scene2d.InputEvent
 import com.badlogic.gdx.scenes.scene2d.InputListener
 import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.utils.viewport.FitViewport
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import ktx.app.KtxScreen
 import me.apemanzilla.ktcl.CLCommandQueue
 import me.apemanzilla.ktcl.CLContext
@@ -17,6 +21,7 @@ import me.zakharov.Game
 import me.zakharov.Pheromones
 import me.zakharov.events.PauseEvent
 import java.util.*
+import kotlin.properties.Delegates
 import kotlin.random.Random
 
 class MainScreen(
@@ -34,13 +39,22 @@ class MainScreen(
     private val ground by lazy { Ground(Texture(
 //        "tex/ground-2.png"
         "tex/ground-test.png"
+//        "tex/ground.png"
     ), ctx, cmd, w / 2, h / 2) }
     private val pher by lazy { Pheromones(ctx, cmd, ground.w, ground.h) }
-    private val ants by lazy { Ants(ctx, cmd, ground, pher, game.font) }
+    private val ants by lazy { Ants(AntsConfig(game.font, 200), ctx, cmd, ground, pher) }
     private var pause = false
     private var oneStep = false
 
-    val scene = Stage(FitViewport(w.toFloat(), h.toFloat(), camera), game.batch).apply {
+    private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    private var _debugFlow = MutableSharedFlow<Boolean>()
+    private var debug by Delegates.observable(false) {_, _, v ->
+        mainScope.launch { _debugFlow.emit(v) }
+    }
+    val debugFlow = _debugFlow.asSharedFlow()
+
+    private val scene = Stage(FitViewport(w.toFloat(), h.toFloat(), camera), game.batch).apply {
         println("Creating scene")
         addActor(ground)
         addActor(pher)
@@ -61,6 +75,7 @@ class MainScreen(
                     Input.Keys.S -> oneStep = true
                     Input.Keys.R -> pher.reset()
                     Input.Keys.P -> pher.print()
+                    Input.Keys.D -> { debug = !debug; this@apply.isDebugAll = debug }
                     else -> return false
                 }
                 return true
@@ -92,6 +107,30 @@ class MainScreen(
         tex = Texture(pixmap)
     }
 
+    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+
+    /* works slower
+    init {
+        scope.launch {
+            while(isActive) {
+                if ( !pause || oneStep) {
+                    if ( oneStep ) {
+                        // clear pher
+                        pher.reset()
+                    }
+                    scene.act()
+                    oneStep = false
+                }
+                yield()
+            }
+        }
+    }*/
+
+    override fun dispose() {
+        super.dispose()
+        scope.cancel()
+    }
+
     override fun render(delta: Float) {
         //camera.update()
         //game.batch.projectionMatrix = camera.combined
@@ -108,7 +147,8 @@ class MainScreen(
         scene.draw()
 
         scene.batch.begin()
-        game.font.draw(scene.batch, "fps ${Gdx.graphics.framesPerSecond}", 0f, h-20f)
+        game.font.draw(scene.batch, "fps: ${Gdx.graphics.framesPerSecond}", 0f, h-20f)
+        game.font.draw(scene.batch, "debug: $debug", 0f, h-35f)
         scene.batch.end()
         //game.batch.end()
 

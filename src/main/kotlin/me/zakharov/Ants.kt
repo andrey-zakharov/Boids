@@ -65,24 +65,26 @@ data class Ant(val conf: AntConfig, val pos: Vector2, val vel: Vector2) {
 internal operator fun Vector2.times(times: Float) = Vector2(this.x * times, this.y * times)
 internal operator fun Vector2.plus(pos: Vector2) = Vector2(this.x + pos.x, this.y + pos.y)
 internal fun Vector2.rotatedDeg(deg: Float): Vector2 = Vector2(this).rotateDeg(deg)
+internal fun Vector2.normalized(): Vector2 = Vector2(this).nor()
+
+data class AntsConfig(
+    val font: BitmapFont,
+    val totalCount: Int = 200,
+)
 
 class Ants(
+    private val conf: AntsConfig,
     private val ctx: CLContext,
     private val cmd: CLCommandQueue,
     private val ground: Ground,
     private val pheromones: Pheromones,
-    private val font: BitmapFont,
-    // config
-    private val totalCount: Int = 10,
-    private val angleDegs: Float = 30f ///< angle of detection for ant in degrees
 ) : Actor() {
-
-
+    // internal conf
+    private val maxSpeed = 15.0f ///< per second
+    private val angleDegs: Float = 45f ///< angle of detection for ant in degrees
     private val w = ground.w
     private val h = ground.h
-
-
-    private val maxSpeed = 20.0f ///< per second
+    private var time = 0f
 
     // hack for cl compile
     //override fun getDebug() = true
@@ -91,29 +93,29 @@ class Ants(
     @ExperimentalUnsignedTypes
     private val maxQueueSize = ceil(PI * maxSpeed * maxSpeed * angleDegs / 360).toUInt()
 
+    @ExperimentalUnsignedTypes
     private val prog = ctx.createProgramWithSource(
         this::class.java.getResource("/kernels/queue.c").readText(),
         PherType.clCode(),
         this::class.java.getResource("/kernels/ant.c").readText()
-    )
-            .also {
-                // WITH_FALLBACK_PATHFINDING=true
-                val opts = mutableListOf("-DMAX_QUEUE_SIZE=$maxQueueSize -DMAX_LOOKUP_ANGLE=$angleDegs")
-                if ( debug ) opts.add("-DDEBUG")
+    ).also {
+        // WITH_FALLBACK_PATHFINDING=true
+        val opts = mutableListOf("-DMAX_QUEUE_SIZE=$maxQueueSize -DMAX_LOOKUP_ANGLE=$angleDegs")
+        if ( debug ) opts.add("-DDEBUG")
 
-                it.build(opts.joinToString(" "))
-                d("build ants with $opts")
-            }
+        it.build(opts.joinToString(" "))
+        d("build ants with $opts")
+    }
     private val kernel = prog.createKernel("ant_kernel").also {
         //it.setArg(1, thres)
     }
 
     /// entities
-    private val posBuff = BufferUtils.createByteBuffer(totalCount * FLOAT2_SIZE)
-    private val velBuff = BufferUtils.createByteBuffer(totalCount * FLOAT2_SIZE)
+    private val posBuff = BufferUtils.createByteBuffer(conf.totalCount * FLOAT2_SIZE)
+    private val velBuff = BufferUtils.createByteBuffer(conf.totalCount * FLOAT2_SIZE)
     /** 0 - empty, looking for food, 1 - with food */
     /// TODO bitmask
-    private val stateBuff = BufferUtils.createByteBuffer(totalCount * BOOL_SIZE)
+    private val stateBuff = BufferUtils.createByteBuffer(conf.totalCount * BOOL_SIZE)
 
     private val posCLBuff = ctx.createBuffer(posBuff)
     private val velCLBuff = ctx.createBuffer(velBuff)
@@ -133,10 +135,10 @@ class Ants(
         val p = posBuff.asFloatBuffer()
         val v = velBuff.asFloatBuffer()
 
-        val angleDiff: Float = PI.toFloat() * 2 / totalCount
+        val angleDiff: Float = PI.toFloat() * 2 / conf.totalCount
         val tempVector = Vector2(50f, 0f)
 
-        for (i in 0 until totalCount) {
+        for (i in 0 until conf.totalCount) {
 
 //            p.put(i * 2, random.nextFloat() * w)
 //            p.put(i * 2 + 1, random.nextFloat() * h)
@@ -148,8 +150,9 @@ class Ants(
             
             //v.put( i * 2, vel.x)
             //v.put( i * 2 + 1, vel.y)
-            v.put( i * 2, 0f)
-            v.put( i * 2 + 1, 0f)
+            val vel = tempVector.normalized()
+            v.put( i * 2, vel.x)
+            v.put( i * 2 + 1, vel.y)
             //v.put( i * 2, 0f)
             //v.put( i * 2 + 1, max_speed)
             tempVector.rotateRad(angleDiff)
@@ -164,12 +167,14 @@ class Ants(
 
     override fun act(delta: Float) {
         actlast = measureTimeMillis {
+            time += delta
             super.act(delta)
             //val r = (max_speed * delta)
             //val s = ceil(PI * r * r * angle_degs / 360)
 
             with(kernel) {
                 var a = 0
+                setArg( a++, time)
                 setArg( a++, delta)
                 setArg( a++, maxSpeed)
                 setArg( a++, w)
@@ -192,7 +197,7 @@ class Ants(
 
 
 
-            val ev = cmd.enqueueNDRangeKernel(kernel, totalCount.toLong())
+            val ev = cmd.enqueueNDRangeKernel(kernel, conf.totalCount.toLong())
 
             cmd.finish()
 
@@ -213,7 +218,7 @@ class Ants(
 
     fun debugObstacles() {
         val p = posBuff.asFloatBuffer()
-        for ( i in 0 until totalCount) {
+        for ( i in 0 until conf.totalCount) {
 
             val pos = Vector2(p[i*2], p[i*2+1])
             if ( stateBuff[i] > 0 ) {
@@ -277,12 +282,11 @@ class Ants(
                 //font.draw(batch, "%.2fx%.2f".format(p[2*i], p[2*i+1]), pos.x, pos.y + 20f )
                 // if this ant debug
                 // selected
-//                font.draw(batch, "%.2fx%.2f".format(vel.x, vel.y), pos.x, pos.y + 20f )
-//
-//                font.draw(batch, actlast.toString(), pos.x - 10f, pos.y - 20f)
-//                font.draw(batch, st.toString(), pos.x + 10f, pos.y - 20f)
-
-
+                if ( debug ) {
+                    conf.font.draw(batch, "%.2fx%.2f".format(vel.x, vel.y), pos.x, pos.y + 20f)
+                    conf.font.draw(batch, actlast.toString(), pos.x - 10f, pos.y - 20f)
+                    conf.font.draw(batch, st.toString(), pos.x + 10f, pos.y - 20f)
+                }
             }
         }
 
@@ -305,7 +309,7 @@ class Ants(
         val p = posBuff.asFloatBuffer()
         val v = velBuff.asFloatBuffer()
         val s = stateBuff
-        for ( i in 0 until totalCount ) {
+        for ( i in 0 until conf.totalCount ) {
             val pos = Vector2(p[2 * i] * scaleStageX, (h - p[2 * i + 1]) * scaleStageY)
             val vel = Vector2(v[2 * i] * scaleStageX, -v[2 * i + 1] * scaleStageY)
             val st = AntState.fromValue(s[i])
@@ -315,7 +319,7 @@ class Ants(
 
     override fun drawDebug(shapes: ShapeRenderer?) {
         super.drawDebug(shapes)
-        forEach { pos, vel, st ->
+        forEach { pos, vel, _ ->
             Ant(AntConfig(angleDegs), pos, vel).invoke(shapes)
         }
     }

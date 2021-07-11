@@ -63,7 +63,7 @@ class Ground(
             drawPixmap(px, 0, 0, px.width, px.height, 0, 0, width, height)
         }
 
-        var c = Color()
+        val c = Color()
         for (y in 0 until h) {
             for ( x in 0 until w) {
                 c.set(cpx.getPixel(x, y))
