@@ -38,21 +38,16 @@ class MainScreen(
 
     private val ground by lazy { Ground(Texture(
 //        "tex/ground-2.png"
-        "tex/ground-test.png"
-//        "tex/ground.png"
+//        "tex/ground-test.png"
+        "tex/ground.png"
+//        "tex/pic.png"
     ), ctx, cmd, w / 2, h / 2) }
     private val pher by lazy { Pheromones(ctx, cmd, ground.w, ground.h) }
-    private val ants by lazy { Ants(AntsConfig(game.font, 200), ctx, cmd, ground, pher) }
+    private val ants by lazy { Ants(AntsConfig(game.font, 1000 ), ctx, cmd, ground, pher) }
     private var pause = false
     private var oneStep = false
 
     private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-
-    private var _debugFlow = MutableSharedFlow<Boolean>()
-    private var debug by Delegates.observable(false) {_, _, v ->
-        mainScope.launch { _debugFlow.emit(v) }
-    }
-    val debugFlow = _debugFlow.asSharedFlow()
 
     private val scene = Stage(FitViewport(w.toFloat(), h.toFloat(), camera), game.batch).apply {
         println("Creating scene")
@@ -75,7 +70,7 @@ class MainScreen(
                     Input.Keys.S -> oneStep = true
                     Input.Keys.R -> pher.reset()
                     Input.Keys.P -> pher.print()
-                    Input.Keys.D -> { debug = !debug; this@apply.isDebugAll = debug }
+                    Input.Keys.D -> { this@apply.isDebugAll = !this@apply.isDebugAll }
                     else -> return false
                 }
                 return true
@@ -138,7 +133,7 @@ class MainScreen(
         if ( !pause || oneStep) {
             if ( oneStep ) {
                 // clear pher
-                pher.reset()
+                //pher.reset()
             }
             scene.act()
             oneStep = false
@@ -148,7 +143,7 @@ class MainScreen(
 
         scene.batch.begin()
         game.font.draw(scene.batch, "fps: ${Gdx.graphics.framesPerSecond}", 0f, h-20f)
-        game.font.draw(scene.batch, "debug: $debug", 0f, h-35f)
+        game.font.draw(scene.batch, "debug: ${scene.isDebugAll}", 0f, h-35f)
         scene.batch.end()
         //game.batch.end()
 

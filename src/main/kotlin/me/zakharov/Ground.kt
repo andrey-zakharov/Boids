@@ -4,6 +4,7 @@ import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.Batch
+import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.scenes.scene2d.Actor
 import me.apemanzilla.ktcl.CLCommandQueue
@@ -25,16 +26,26 @@ enum class CellType(val code: Byte, val color: Color) {
 
 class CellTypeCollector {
     val sum = Vector2.Zero
+    //var bb = Rectangle(Int.MAX_VALUE, Int.MAX_VALUE, 0, 0)
+    var bbx = Int.MAX_VALUE
+    var bby = Int.MAX_VALUE
+    var bbw = 0
+    var bbh = 0
     private val stats = mutableMapOf<CellType, Int>()
     operator fun invoke(x: Int, y: Int, v: CellType) {
         if ( v == CellType.Nest ) {
             sum.add(Vector2(x.toFloat(), y.toFloat()))
+            if ( bbx > x ) bbx = x
+            if ( bby > y ) bby = y
+            if ( bbx + bbw < x ) bbw = x - bbx
+            if ( bby + bbh < x ) bbh = y - bby
         }
 
         stats[v] = stats.getOrDefault(v, 0) + 1
     }
     // final
     fun getMedian() = Vector2(sum.x / stats[CellType.Nest]!!, sum.y / stats[CellType.Nest]!!)
+    fun getBoundingBox() = Rectangle(bbx.toFloat(), bby.toFloat(), bbw.toFloat(), bbh.toFloat())
     override fun toString() = stats.toString()
 }
 

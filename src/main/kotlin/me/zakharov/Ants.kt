@@ -22,6 +22,7 @@ import java.util.*
 import kotlin.math.PI
 import kotlin.math.ceil
 import kotlin.math.cos
+import kotlin.math.max
 import kotlin.system.measureTimeMillis
 
 data class AntConfig(
@@ -80,7 +81,7 @@ class Ants(
     private val pheromones: Pheromones,
 ) : Actor() {
     // internal conf
-    private val maxSpeed = 15.0f ///< per second
+    private val maxSpeed = 7.0f ///< per second
     private val angleDegs: Float = 45f ///< angle of detection for ant in degrees
     private val w = ground.w
     private val h = ground.h
@@ -131,12 +132,15 @@ class Ants(
     init {
 
         val nest = ground.report.getMedian()
+        val nestradius = ground.report.getBoundingBox().let {
+            (max(it.width, it.height) / 2) + 2f
+        }
         println("Nest = $nest")
         val p = posBuff.asFloatBuffer()
         val v = velBuff.asFloatBuffer()
 
         val angleDiff: Float = PI.toFloat() * 2 / conf.totalCount
-        val tempVector = Vector2(50f, 0f)
+        val tempVector = Vector2(nestradius, 0f)
 
         for (i in 0 until conf.totalCount) {
 

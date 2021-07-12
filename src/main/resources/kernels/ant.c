@@ -67,12 +67,15 @@ float2 bfs_visit_cell_ground(bool emp, float2 cell_vec, enum CellType ground) {
         case empty: return force;
         case nest:
             force = -cell_vec;
-            if ( !emp ) force *= (float2)-1.;
+            if ( !emp ) {
+                force = -force;
+                //printf("nest %f, %f\n", force.x, force.y);
+            }
             break;
 
         case food:
             force = cell_vec;
-            if ( !emp ) force *= (float2)-1.;
+            if ( !emp ) force = -force;
             break;
         case obstacle:
             force = -cell_vec;
@@ -128,11 +131,12 @@ void ant_kernel(
     float accel = max_speed / 10.;
 
     int index = get_global_id(0);
+    int _random_call = 0.;
     // adapter to be done
 #define pos coords[index]
 #define vel velocities[index]
 #define ant_state state[index]
-#define rand (random(pos + vel + (float2)time))
+#define rand (random(pos + vel + (float2)(index+1) * (float2)time + (float2)(++_random_call)))
 
     //float2 pos = coords[index];
     //float2 vel = velocities[index];
@@ -179,6 +183,13 @@ void ant_kernel(
         }
     }
 
+    if (rand > 0.9) {
+        enum PherType trailToLeave = trail;
+        if ( !emp ) trailToLeave = food_trail;
+        pheromonesArray[get_array_index(w, h, pos)] += (float) trailToLeave / 5.;
+        //println("trail %f, %f\n", pos.x, pos.y);
+    }
+
     pos = wrap_bounds(next_pos, w, h);
     queue cells;
     queue_init(&cells);
@@ -199,10 +210,6 @@ void ant_kernel(
 
         /// get_valid_cells
         // neighbours
-        // first check by min angle, but at least get one with max dot product
-        size_t added = 0;
-        float maxdot = -100.;
-        uint maxdoti = -1;
         for ( uint i = 0; i < sizeof(d)/sizeof(int2); i++ ) {
         	float2 fupp = fcp + d[i];
 
@@ -211,29 +218,11 @@ void ant_kernel(
 
             if (check_valid(iorigin, vel, fupp) && !check_queued(&cells, cell_to_add)) {
                 queue_push(&cells, cell_to_add);
-                added ++;
-            }
-
-            float d = dot( normalize( vel ), normalize( fupp - iorigin ) );
-            if ( d > maxdot ) {
-                maxdot = d;
-                maxdoti = i;
             }
         }
 
         //printf("added to PF queue= %d\n", added);
         //queue_print(&cells);
-
-#ifdef WITH_FALLBACK_PATHFINDING
-        if ( added == 0 ) {
-            uint2 last_chance = fcp + d[maxdoti];
-            if ( length (last_change - fcp) < length(vel) ) {
-                //debug
-                set_cell_pheromone(&phers, last_chance, food_trail);
-                queue_push(&cells, last_chance);
-            }
-        }
-#endif
 
         //printf("|| end looking around cell\n");
         if ( isequali(cp.x, origin.x) ) {
@@ -241,7 +230,8 @@ void ant_kernel(
         }
 
         float2 forceFromGround = bfs_visit_cell_ground(emp, cell_vec, groundArray[get_array_index(w, h, fcp)]);
-        float2 forceFromPheromon = bfs_visit_cell_pheromones(emp, cell_vec, pheromonesArray[get_array_index(w, h, fcp)]);
+        float2 forceFromPheromon = bfs_visit_cell_pheromones(emp, cell_vec, pheromonesArray[get_array_index(w, h, fcp)])
+            * (float2)mix((float)0.5, (float)1.0, rand);
 
 #ifdef DEBUG
         if ( length(forceFromGround) > 0)
@@ -252,16 +242,20 @@ void ant_kernel(
                 forceFromPheromon.x, forceFromPheromon.y, length(forceFromPheromon));
 #endif
         vel_acc += forceFromGround; // obstacles_found
-        vel_acc += forceFromPheromon * (float2)mix((float)0.85, (float)1.0, rand);
+        //if ( length(forceFromGround) == 0 ) {
+            vel_acc += forceFromPheromon;
+        //} else {
+        //    vel_acc += forceFromPheromon / length(forceFromGround);
+        //}
             //rand;
     }
 
 
     vel += vel_acc ;//*(float2)(2.)  / obstacles_found;
     // random fluctuation
-    float r = (rand - 0.5) * 0.17453292519943 /*10 deg*/;
+    //float r = (rand - 0.5) * 0.17453292519943 /*10 deg*/;
     //r = 0.01;
-    vel = (float2)( vel.x * cos(r) - vel.y * sin(r), vel.x * sin(r) + vel.y * cos(r) );
+    //vel = (float2)( vel.x * cos(r) - vel.y * sin(r), vel.x * sin(r) + vel.y * cos(r) );
 
 
 #ifdef DEBUG
@@ -271,11 +265,7 @@ void ant_kernel(
     }
 #endif
 
-    if (rand > 0.7) {
-        enum PherType trailToLeave = trail;
-        if ( !emp ) trailToLeave = food_trail;
-        pheromonesArray[get_array_index(w, h, pos)] += (float) trailToLeave / 5.;
-    }
+
     //debug queue
 
     float len = length(vel);
