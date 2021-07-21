@@ -8,8 +8,6 @@ __constant float2 d[8] = {
 	(float2)(-1., +1.), (float2)(0., +1.), (float2)(1., +1.),
 };
 
-__constant const size_t StateEmpty = 0;
-__constant const size_t StateFull = 0;
 enum State { empty = 0, full = 1 } ;
 enum CellType { cellEmpty = 0, nest = 1, food = 2, obstacle = 3 } ;
 
@@ -107,7 +105,7 @@ float2 bfs_visit_cell_pheromones(bool emp, float2 cell_vec, float ph) {
             f = -cell_vec * (float2)ph;
 
         } else { // go to nest
-            f = cell_vec / (float2)ph;
+            f = cell_vec /*/ (float2)ph*/;
         }
     }
 
@@ -123,6 +121,7 @@ void ant_kernel(
     uint h,
     __global uchar*     groundArray,
     __global float*     pheromonesArray,
+    int ants_count,
     __global float2*    coords,
     __global float2*    velocities,
     __global uchar*     state
@@ -144,7 +143,8 @@ void ant_kernel(
     //uchar out_state = state[index];
 
     bool emp = ant_state == empty;
-    // check step
+    // check step    float2 next_pos = pos + normalize(vel) / (float2)2.3;
+    //float2 next_pos = pos + vel * delta * 15;
     float2 next_pos = pos + normalize(vel);
     if ( !samecell(next_pos, pos) ) {
         enum CellType groundAhead = groundArray[get_array_index(w, h, next_pos)];
@@ -183,11 +183,15 @@ void ant_kernel(
         }
     }
 
-    if (rand > 0.9) {
-        enum PherType trailToLeave = trail;
+    next_pos = pos + normalize(vel); // but slow down?
+
+    if (rand > 0.7) {
+        float current_pher = pheromonesArray[get_array_index(w, h, pos)];
+        float trailToLeave = trail;
         if ( !emp ) trailToLeave = food_trail;
-        pheromonesArray[get_array_index(w, h, pos)] += (float) trailToLeave / 5.;
-        //println("trail %f, %f\n", pos.x, pos.y);
+        if ( current_pher == 0 || current_pher * trailToLeave > 0  ) { // same sign allowed
+            pheromonesArray[get_array_index(w, h, pos)] +=  trailToLeave / sqrt((float)ants_count);
+        }
     }
 
     pos = wrap_bounds(next_pos, w, h);
@@ -198,7 +202,12 @@ void ant_kernel(
     // and center of current cell
     float2 iorigin = convert_float2(origin) + (float2)0.5;
 //    size_t obstacles_found = 0;
-    float2 vel_acc = (float2)0.;
+
+    /// forces from ground
+    /// pher #1
+    /// pher #2
+    float2 forces[3] = { { 0., 0. }, { 0., 0. }, { 0., 0. } };
+    //0 - forceFromGround
 
     /// BFS
     while(!queue_empty(&cells)) {
@@ -229,29 +238,42 @@ void ant_kernel(
             continue;
         }
 
-        float2 forceFromGround = bfs_visit_cell_ground(emp, cell_vec, groundArray[get_array_index(w, h, fcp)]);
-        float2 forceFromPheromon = bfs_visit_cell_pheromones(emp, cell_vec, pheromonesArray[get_array_index(w, h, fcp)])
-            * (float2)mix((float)0.5, (float)1.0, rand);
+        forces[0] += bfs_visit_cell_ground(emp, cell_vec, groundArray[get_array_index(w, h, fcp)]);
+
+        float pher = pheromonesArray[get_array_index(w, h, fcp)];
+        int res_index = 2; // forceFromFoodPheromon
+
+        if (pher > 0) {
+            res_index = 1; // forceFromPheromon
+        }
+        forces[res_index] += bfs_visit_cell_pheromones(emp, cell_vec, pher)
+        //    * (float2)mix((float)0.5, (float)1.0, rand)
+        ;
 
 #ifdef DEBUG
-        if ( length(forceFromGround) > 0)
-            printf("forced from ground: Vector(%0.5f,\t%0.5f\t).mod=%0.5f\n",
-                forceFromGround.x, forceFromGround.y, length(forceFromGround));
-        if ( length(forceFromPheromon) > 0)
-            printf("forced from phers: Vector(%0.5f,\t%0.5f\t).mod=%0.5f\n",
-                forceFromPheromon.x, forceFromPheromon.y, length(forceFromPheromon));
+        for( int i = 0; i < 3; i++ ) {
+            //if ( length(forces[0]) > 0)
+            printf("forces[%d]: Vector(%0.5f,\t%0.5f\t).mod=%0.5f\n", i,
+                forces[i].x, forces[i].y, length(forces[i]));
+        }
 #endif
-        vel_acc += forceFromGround; // obstacles_found
-        //if ( length(forceFromGround) == 0 ) {
-            vel_acc += forceFromPheromon;
-        //} else {
-        //    vel_acc += forceFromPheromon / length(forceFromGround);
-        //}
-            //rand;
     }
 
+    vel += forces[0];  //ground
+    if ( emp ) {
+        if ( length(forces[2]) > 0 ) { //anger mode - only this phers accounts
+            vel += forces[2] ;//*(float2)(2.)  / obstacles_found;
+        } else {
+            vel += forces[1] / (float2)5.; // trails
+        }
+    } else {
+        if ( length(forces[1]) > 0 ) {
+            vel += forces[1];
+        } else {
+            vel += forces[2] / (float2)2.;
+        }
+    }
 
-    vel += vel_acc ;//*(float2)(2.)  / obstacles_found;
     // random fluctuation
     //float r = (rand - 0.5) * 0.17453292519943 /*10 deg*/;
     //r = 0.01;

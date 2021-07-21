@@ -81,8 +81,8 @@ class Ants(
     private val pheromones: Pheromones,
 ) : Actor() {
     // internal conf
-    private val maxSpeed = 7.0f ///< per second
-    private val angleDegs: Float = 45f ///< angle of detection for ant in degrees
+    private val maxSpeed = 10.0f ///< per second
+    private val angleDegs: Float = 40f ///< angle of detection for ant in degrees
     private val w = ground.w
     private val h = ground.h
     private var time = 0f
@@ -185,6 +185,7 @@ class Ants(
                 setArg( a++, h)
                 setArg( a++, ground.shared.remoteBuff)
                 setArg( a++, pheromones.shared.remoteBuff)
+                setArg( a++, conf.totalCount)
                 setArg( a++, posCLBuff)
                 setArg( a++, velCLBuff)
                 setArg( a++, stateCLBuff)
@@ -288,7 +289,7 @@ class Ants(
                 // selected
                 if ( debug ) {
                     conf.font.draw(batch, "%.2fx%.2f".format(vel.x, vel.y), pos.x, pos.y + 20f)
-                    conf.font.draw(batch, actlast.toString(), pos.x - 10f, pos.y - 20f)
+                    //conf.font.draw(batch, actlast.toString(), pos.x - 10f, pos.y - 20f)
                     conf.font.draw(batch, st.toString(), pos.x + 10f, pos.y - 20f)
                 }
             }

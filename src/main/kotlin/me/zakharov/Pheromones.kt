@@ -11,7 +11,10 @@ import me.apemanzilla.ktcl.CLCommandQueue
 import me.apemanzilla.ktcl.CLContext
 import me.apemanzilla.ktcl.cl10.*
 import java.nio.ByteBuffer
-
+data class PheromonesConfig(
+    val alpha: Float = 0.95f, // in 1 sec
+    val thres: Float = 0.01f
+)
 //enum PherType { none = 0, trail = 1, food_trail = -1, debug = -2 } ;
 enum class PherType(val v: Float) {
     none(0f), trail(1f), food_trail(-1f), debug(-2f);
@@ -28,14 +31,14 @@ enum class PherType(val v: Float) {
     }
 }
 class Pheromones(
-        private val ctx: CLContext,
+        ctx: CLContext,
         private val cmd: CLCommandQueue,
-        internal val w: Int,
-        internal val h: Int
+        w: Int,
+        h: Int
 ) : Actor() {
 
-    private val alpha: Float = 0.95f // in 1 sec
-    private val thres: Float = 0.01f
+    private val alpha: Float = 0.75f // in 1 sec
+    private val thres: Float = 0.003f
 
     private val shaderProgram = ShaderProgram(
         Gdx.files.internal("shaders/pheromones.vert"),

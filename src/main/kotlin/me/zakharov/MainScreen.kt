@@ -38,12 +38,12 @@ class MainScreen(
 
     private val ground by lazy { Ground(Texture(
 //        "tex/ground-2.png"
-//        "tex/ground-test.png"
-        "tex/ground.png"
+        "tex/ground-test.png"
+//        "tex/ground.png"
 //        "tex/pic.png"
     ), ctx, cmd, w / 2, h / 2) }
     private val pher by lazy { Pheromones(ctx, cmd, ground.w, ground.h) }
-    private val ants by lazy { Ants(AntsConfig(game.font, 1000 ), ctx, cmd, ground, pher) }
+    private val ants by lazy { Ants(AntsConfig(game.font, 1000), ctx, cmd, ground, pher) }
     private var pause = false
     private var oneStep = false
 
