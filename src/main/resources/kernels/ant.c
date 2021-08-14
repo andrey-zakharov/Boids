@@ -225,7 +225,7 @@ void ant_kernel(
             //set_cell_pheromone(&pheromones, fupp, debug);
             uint2 cell_to_add = convert_uint2(fupp);
 
-            if (check_valid(iorigin, vel, fupp) && !check_queued(&cells, cell_to_add)) {
+            if (check_valid(iorigin, max_speed, fupp) && !check_queued(&cells, cell_to_add)) {
                 queue_push(&cells, cell_to_add);
             }
         }
@@ -247,7 +247,7 @@ void ant_kernel(
             res_index = 1; // forceFromPheromon
         }
         forces[res_index] += bfs_visit_cell_pheromones(emp, cell_vec, pher)
-        //    * (float2)mix((float)0.5, (float)1.0, rand)
+            * (float2)mix((float)0.5, (float)1.0, rand)
         ;
 
 #ifdef DEBUG
@@ -275,7 +275,7 @@ void ant_kernel(
     }
 
     // random fluctuation
-    //float r = (rand - 0.5) * 0.17453292519943 /*10 deg*/;
+    float r = (rand - 0.5) * 0.17453292519943 /*10 deg*/;
     //r = 0.01;
     //vel = (float2)( vel.x * cos(r) - vel.y * sin(r), vel.x * sin(r) + vel.y * cos(r) );
 

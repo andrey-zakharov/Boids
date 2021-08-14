@@ -1,17 +1,22 @@
 package me.zakharov
 import com.badlogic.gdx.Application
 import com.badlogic.gdx.Gdx
+import com.badlogic.gdx.Input
+import com.badlogic.gdx.InputMultiplexer
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration
+import com.badlogic.gdx.graphics.OrthographicCamera
+import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import ktx.app.KtxGame
+import ktx.app.KtxInputAdapter
 import ktx.app.KtxScreen
 import me.apemanzilla.ktcl.CLDevice
 import me.apemanzilla.ktcl.CLException
 import me.apemanzilla.ktcl.cl10.*
-import me.zakharov.me.zakharov.MainScreen
-import kotlin.time.Duration
+import me.zakharov.me.zakharov.*
+import me.zakharov.me.zakharov.utils.SimpleGameScreen
 
 val d: (m: Any) -> Unit = ::println
 val warn: (m: Any) -> Unit = ::println
@@ -19,18 +24,46 @@ val warn: (m: Any) -> Unit = ::println
 class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
     val batch by lazy { SpriteBatch() }
     val font by lazy { BitmapFont() }
+    val model: IGameModel by lazy { PrimaryGameModel() }
 
     private val ctx by lazy { device.createContext() }
     private val cmd by lazy { device.createCommandQueue(ctx) }
-    // Kernel(batchND).apply {
-    //  load(Resource("saxpy.kernel"))
-    //  allocBuffersFromArgs?
-    // }
-    //
-    //val saxpyKernel = Saxpy(ctx, cmd)
-
     val maxItemsX = device.maxWorkItemSizes[0]
     val maxItemsY = device.maxWorkItemSizes[1]//, maxItemsZ)
+
+    private val screen1 by lazy { MainScreen(this, ctx, cmd).apply {
+
+
+    } }
+
+    private val screen2 by lazy { object: SimpleGameScreen(camera = mainCam, batch = batch, input = inputBus) {
+        // TODO Ground.fromMatrix, fromPicture ctor
+        private val ground by lazy { Ground(Texture("tex/ground-test.png"), ctx, cmd, 5, 5) }
+        private val ants by lazy { Ants(AntsConfig(5, 5,font, 1), ctx, cmd, ground) }
+
+
+
+
+    } }
+
+    // gdx stuff
+    private val w = Gdx.app.graphics.width
+    private val h = Gdx.app.graphics.height
+    internal val mainCam by lazy { OrthographicCamera().apply {
+        setToOrtho(false, w.toFloat(), h.toFloat())
+    }}
+
+    private val inputProcessor = object: KtxInputAdapter {
+        override fun keyUp(keycode: Int): Boolean = when (keycode) {
+            Input.Keys.F1 -> setScreen<MainScreen>() == Unit
+            Input.Keys.F2 -> setScreen<TestScreen>() == Unit
+            else -> { println(keycode); super.keyUp(keycode) }
+        }
+    }
+
+    private val inputBus = InputMultiplexer().apply {
+        addProcessor(inputProcessor)
+    }
 
     override fun create() {
         val ver = Gdx.app.graphics.glVersion
@@ -38,28 +71,23 @@ class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
         d("GL renderer: ${ver.vendorString} ${ver.rendererString}")
         //Gdx.graphics.setForegroundFPS(0)
         Gdx.graphics.setVSync(false)
+        Gdx.input.inputProcessor = inputBus
         val durMs = kotlin.system.measureTimeMillis {
-            addScreen(MainScreen(this, ctx, cmd).apply {
-
-            })
+            addScreen(screen1)
+            addScreen(screen2)
             setScreen<MainScreen>()
             super.create()
         }
         d("Created Game: $durMs ms")
-
     }
-
-//    fun run() {
-//        mainView.run()
-//    }
 
     override fun dispose() {
         batch.dispose()
         font.dispose()
         super.dispose()
     }
-
 }
+
 fun main() {
 
 

@@ -69,8 +69,12 @@ internal fun Vector2.rotatedDeg(deg: Float): Vector2 = Vector2(this).rotateDeg(d
 internal fun Vector2.normalized(): Vector2 = Vector2(this).nor()
 
 data class AntsConfig(
+    val width: Int,
+    val height: Int,
     val font: BitmapFont,
     val totalCount: Int = 200,
+    val maxSpeed: Float = 20.0f, ///< per second
+    val angleDegs: Float = 40f, ///< angle of detection for ant in degrees
 )
 
 class Ants(
@@ -78,11 +82,10 @@ class Ants(
     private val ctx: CLContext,
     private val cmd: CLCommandQueue,
     private val ground: Ground,
-    private val pheromones: Pheromones,
+    private val pheromones: Pheromones = Pheromones(ctx, cmd, conf.width, conf.height),
 ) : Actor() {
     // internal conf
-    private val maxSpeed = 10.0f ///< per second
-    private val angleDegs: Float = 40f ///< angle of detection for ant in degrees
+
     private val w = ground.w
     private val h = ground.h
     private var time = 0f
@@ -92,16 +95,16 @@ class Ants(
 
     private val random = Random(Calendar.getInstance().timeInMillis)
     @ExperimentalUnsignedTypes
-    private val maxQueueSize = ceil(PI * maxSpeed * maxSpeed * angleDegs / 360).toUInt()
+    private val maxQueueSize = ceil(PI * conf.maxSpeed * conf.maxSpeed * conf.angleDegs / 360).toUInt()
 
     @ExperimentalUnsignedTypes
     private val prog = ctx.createProgramWithSource(
-        this::class.java.getResource("/kernels/queue.c").readText(),
+        this::class.java.getResource("/kernels/queue.c")!!.readText(),
         PherType.clCode(),
-        this::class.java.getResource("/kernels/ant.c").readText()
+        this::class.java.getResource("/kernels/ant.c")!!.readText()
     ).also {
         // WITH_FALLBACK_PATHFINDING=true
-        val opts = mutableListOf("-DMAX_QUEUE_SIZE=$maxQueueSize -DMAX_LOOKUP_ANGLE=$angleDegs")
+        val opts = mutableListOf("-DMAX_QUEUE_SIZE=$maxQueueSize -DMAX_LOOKUP_ANGLE=${conf.angleDegs}")
         if ( debug ) opts.add("-DDEBUG")
 
         it.build(opts.joinToString(" "))
@@ -175,12 +178,13 @@ class Ants(
             super.act(delta)
             //val r = (max_speed * delta)
             //val s = ceil(PI * r * r * angle_degs / 360)
+            pheromones.act(delta)
 
             with(kernel) {
                 var a = 0
                 setArg( a++, time)
                 setArg( a++, delta)
-                setArg( a++, maxSpeed)
+                setArg( a++, conf.maxSpeed)
                 setArg( a++, w)
                 setArg( a++, h)
                 setArg( a++, ground.shared.remoteBuff)
@@ -198,24 +202,16 @@ class Ants(
                 enqueueWriteBuffer(posBuff, posCLBuff)
                 enqueueWriteBuffer(velBuff, velCLBuff)
                 enqueueWriteBuffer(from = stateBuff, to = stateCLBuff)
-            }
-
-
-
-            val ev = cmd.enqueueNDRangeKernel(kernel, conf.totalCount.toLong())
-
-            cmd.finish()
-
-            /// afterNDRun
-            with(cmd) {
+                val ev = enqueueNDRangeKernel(kernel, conf.totalCount.toLong())
+                finish()
+                /// afterNDRun
                 enqueueReadBuffer(from = posCLBuff, to = posBuff)
                 enqueueReadBuffer(from = velCLBuff, to = velBuff)
                 enqueueReadBuffer(from = stateCLBuff, to = stateBuff)
+// if ground does not change?
+                enqueueReadBuffer(from = pheromones.shared.remoteBuff, pheromones.shared.buff)
             }
-            // if ground does not change?
-            // kernel's flows
-            pheromones.shared.download(cmd)
-            pheromones.requestRedraw()
+
             //debugScanning()
             //debugObstacles()
         }
@@ -325,7 +321,7 @@ class Ants(
     override fun drawDebug(shapes: ShapeRenderer?) {
         super.drawDebug(shapes)
         forEach { pos, vel, _ ->
-            Ant(AntConfig(angleDegs), pos, vel).invoke(shapes)
+            Ant(AntConfig(conf.angleDegs), pos, vel).invoke(shapes)
         }
     }
 }

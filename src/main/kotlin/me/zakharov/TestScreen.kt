@@ -14,6 +14,7 @@ import me.apemanzilla.ktcl.CLContext
 import me.zakharov.Game
 import me.zakharov.Pheromones
 import me.zakharov.events.PauseEvent
+import me.zakharov.me.zakharov.utils.SimpleGameScreen
 import java.util.*
 import kotlin.random.Random
 
@@ -22,7 +23,7 @@ class TestScreen(
         val ctx: CLContext,
         val cmd: CLCommandQueue
 
-): KtxScreen {
+): SimpleGameScreen(game.mainCam, game.batch) {
     private val w = Gdx.app.graphics.width
     private val h = Gdx.app.graphics.height
     private val camera = OrthographicCamera().apply {
@@ -30,13 +31,11 @@ class TestScreen(
     }
 
     private val ground by lazy { Ground(Texture("tex/ground-2.png"), ctx, cmd, 80, 80) }
-    private val pher by lazy { Pheromones(ctx, cmd, ground.w, ground.h) }
-    private val ants by lazy { Ants(AntsConfig(game.font), ctx, cmd, ground, pher) }
+    private val ants by lazy { Ants(AntsConfig(ground.w, ground.h, game.font), ctx, cmd, ground) }
     private var pause = false
 
     val scene = Stage(FitViewport(w.toFloat(), h.toFloat(), camera), game.batch).apply {
         println("Creating scene")
-        addActor(pher)
         addActor(ground)
         addActor(ants)
         ants.addListener {
@@ -72,22 +71,8 @@ class TestScreen(
         tex = Texture(pixmap)
     }
 
-    private fun processInput() {
-        if ( Gdx.input.isKeyJustPressed(Input.Keys.SPACE) ) {
-            pause = !pause
-        }
-    }
 
     override fun render(delta: Float) {
-
-        processInput()
-        //camera.update()
-        //game.batch.projectionMatrix = camera.combined
-
-        //game.batch.begin()
-        //game.batch.draw(tex, 0f, 0f)
-        //game.font.draw(game.batch, "Welcome!!! ", 0f, 50f)
-        //game.font.draw(game.batch, "Tap anywhere to begin!", 100f, 100f)
         if ( !pause ) {
             scene.act()
         }
@@ -97,13 +82,5 @@ class TestScreen(
         scene.batch.begin()
         game.font.draw(scene.batch, "fps ${Gdx.graphics.framesPerSecond}", 0f, h-20f)
         scene.batch.end()
-        //game.batch.end()
-
-//        if (Gdx.input.isTouched) {
-//            game.addScreen(GameScreen(game))
-//            game.setScreen<GameScreen>()
-//            game.removeScreen<MainMenuScreen>()
-//            dispose()
-//        }
     }
 }

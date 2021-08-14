@@ -16,9 +16,10 @@ data class PheromonesConfig(
     val thres: Float = 0.01f
 )
 //enum PherType { none = 0, trail = 1, food_trail = -1, debug = -2 } ;
+// @CLCode
 enum class PherType(val v: Float) {
     none(0f), trail(1f), food_trail(-1f), debug(-2f);
-
+    /// TBD kotlinc plugin for @CLCode
     companion object {
         fun clCode(): String =
             enumValues<PherType>().joinToString(
@@ -34,7 +35,8 @@ class Pheromones(
         ctx: CLContext,
         private val cmd: CLCommandQueue,
         w: Int,
-        h: Int
+        h: Int,
+        kernel: String = Pheromones::class.java.getResource("/kernels/decay.kernel")!!.readText()
 ) : Actor() {
 
     private val alpha: Float = 0.75f // in 1 sec
@@ -44,7 +46,7 @@ class Pheromones(
         Gdx.files.internal("shaders/pheromones.vert"),
         Gdx.files.internal("shaders/pheromones.frag")
     ).apply {
-        if ( !isCompiled ) {error("shader compile failed: $log")}
+        assert(isCompiled) { "shader compile failed: $log" }
     }
 
     fun reset(): Boolean {
@@ -53,7 +55,7 @@ class Pheromones(
     }
 
     /// opencl stuff
-    private val prog = ctx.createProgramWithSource( this::class.java.getResource("/kernels/decay.kernel").readText() )
+    private val prog = ctx.createProgramWithSource( kernel )
             .also { it.build() }
 
     internal val m = createFloatMatrix2d(w, h)
@@ -82,12 +84,12 @@ class Pheromones(
             setArg(0, lerp(1f, alpha, delta))
         }
 
-        shared.upload(cmd)
-
-        cmd.enqueueNDRangeKernel(kernel, m.width*m.height.toLong())
-        cmd.finish()
-
-        shared.download(cmd)
+        with(cmd) {
+            enqueueWriteBuffer(shared.buff, shared.remoteBuff)
+            enqueueNDRangeKernel(kernel, m.width*m.height.toLong())
+            finish()
+            enqueueReadBuffer(shared.remoteBuff, shared.buff)
+        }
         super.act(delta)
     }
 
@@ -113,10 +115,5 @@ class Pheromones(
                 PherType.none.v -> print(" ")
             }
         }
-    }
-
-    fun requestRedraw() {
-        //tex?.dispose()
-        //tex = null
     }
 }

@@ -2,6 +2,7 @@ package me.zakharov.me.zakharov
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
+import com.badlogic.gdx.InputMultiplexer
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.Pixmap
@@ -27,7 +28,8 @@ import kotlin.random.Random
 class MainScreen(
         val game: Game,
         val ctx: CLContext,
-        val cmd: CLCommandQueue
+        val cmd: CLCommandQueue,
+        val input: InputMultiplexer? = Gdx.input.inputProcessor as? InputMultiplexer,
 
 ): KtxScreen {
     private val w = Gdx.app.graphics.width
@@ -41,18 +43,15 @@ class MainScreen(
         "tex/ground-test.png"
 //        "tex/ground.png"
 //        "tex/pic.png"
-    ), ctx, cmd, w / 2, h / 2) }
+    ), ctx, cmd, w / 20, h / 20) }
     private val pher by lazy { Pheromones(ctx, cmd, ground.w, ground.h) }
-    private val ants by lazy { Ants(AntsConfig(game.font, 1000), ctx, cmd, ground, pher) }
+    private val ants by lazy { Ants(AntsConfig(ground.w, ground.h, game.font, 1), ctx, cmd, ground, pher) }
     private var pause = false
     private var oneStep = false
-
-    private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private val scene = Stage(FitViewport(w.toFloat(), h.toFloat(), camera), game.batch).apply {
         println("Creating scene")
         addActor(ground)
-        addActor(pher)
         addActor(ants.apply { debug = false })
         ants.addListener {
             when(it) {
@@ -77,7 +76,7 @@ class MainScreen(
             }
         })
 
-        Gdx.input.inputProcessor = this
+        //Gdx.input.inputProcessor = this
     }
 
     val random = Random(Calendar.getInstance().timeInMillis)
@@ -100,6 +99,15 @@ class MainScreen(
         pixmap.setColor(Color.BLUE)
         pixmap.drawRectangle(0, 0, pixmap.width, pixmap.height)
         tex = Texture(pixmap)
+        input?.apply {
+            addProcessor(scene)
+        }
+    }
+
+    override fun hide() {
+        input?.apply {
+            removeProcessor(scene)
+        }
     }
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
@@ -120,11 +128,6 @@ class MainScreen(
             }
         }
     }*/
-
-    override fun dispose() {
-        super.dispose()
-        scope.cancel()
-    }
 
     override fun render(delta: Float) {
         //camera.update()
