@@ -47,8 +47,8 @@ class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
     } }
 
     // gdx stuff
-    private val w = Gdx.app.graphics.width
-    private val h = Gdx.app.graphics.height
+    private val w by lazy { Gdx.app.graphics.width }
+    private val h by lazy { Gdx.app.graphics.height }
     internal val mainCam by lazy { OrthographicCamera().apply {
         setToOrtho(false, w.toFloat(), h.toFloat())
     }}

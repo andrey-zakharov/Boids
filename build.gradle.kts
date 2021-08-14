@@ -50,10 +50,16 @@ dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit")
     //testImplementation(project(path=""))
+    testImplementation("io.github.libktx", "ktx-app", ktxVersion)
     testImplementation("com.badlogicgames.gdx", "gdx", gdxVersion)
     testImplementation("com.badlogicgames.gdx", "gdx-backend-headless", gdxVersion)
+    testImplementation("com.badlogicgames.gdx", "gdx-backend-lwjgl3", gdxVersion)
     testImplementation("com.badlogicgames.gdx","gdx-platform", gdxVersion, classifier = "natives-desktop")
-
+    testRuntimeOnly("org.lwjgl", "lwjgl", classifier = lwjglNatives)
+    testRuntimeOnly("org.lwjgl", "lwjgl-glfw", classifier = lwjglNatives)
+    testRuntimeOnly("org.lwjgl", "lwjgl-openal", classifier = lwjglNatives)
+    testRuntimeOnly("org.lwjgl", "lwjgl-opengl", classifier = lwjglNatives)
+    testRuntimeOnly("org.lwjgl", "lwjgl-stb", classifier = lwjglNatives)
     //testImplementation("com.badlogicgames.gdx", "gdx-box2d", gdxVersion)
     //testImplementation("com.badlogicgames.gdx","gdx-box2d-platform", gdxVersion, classifier = "natives-desktop")
 }
