@@ -27,7 +27,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     implementation("org.jetbrains.kotlinx", "kotlinx-coroutines-core", "1.5.0")
 
-    implementation(files("../ktcl/build/libs/ktcl-0.3.1.jar"))
+    implementation(files("libs/ktcl-0.3.1.jar"))
 
     implementation(platform("org.lwjgl:lwjgl-bom:$lwjglVersion"))
 

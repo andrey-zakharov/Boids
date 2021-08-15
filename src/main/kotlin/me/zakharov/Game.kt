@@ -56,7 +56,7 @@ class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
     private val inputProcessor = object: KtxInputAdapter {
         override fun keyUp(keycode: Int): Boolean = when (keycode) {
             Input.Keys.F1 -> setScreen<MainScreen>() == Unit
-            Input.Keys.F2 -> setScreen<TestScreen>() == Unit
+            Input.Keys.F2 -> setScreen<SimpleGameScreen>() == Unit
             else -> { println(keycode); super.keyUp(keycode) }
         }
     }
