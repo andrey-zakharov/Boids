@@ -1,12 +1,6 @@
-package me.zakharov.me.zakharov
+package me.zakharov.ants.model
 
-import com.badlogic.gdx.graphics.Color
-import com.badlogic.gdx.graphics.Texture
-import com.badlogic.gdx.graphics.g2d.Batch
-import com.badlogic.gdx.graphics.g2d.BitmapFont
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Vector2
-import com.badlogic.gdx.scenes.scene2d.Actor
 import me.apemanzilla.ktcl.CLCommandQueue
 import me.apemanzilla.ktcl.CLContext
 import me.apemanzilla.ktcl.cl10.*
@@ -15,7 +9,7 @@ import me.zakharov.Const.FLOAT2_SIZE
 import me.zakharov.PherType
 import me.zakharov.Pheromones
 import me.zakharov.d
-import me.zakharov.events.PauseEvent
+import me.zakharov.utils.IHeadlessActor
 import me.zakharov.warn
 import org.lwjgl.BufferUtils
 import java.util.*
@@ -25,41 +19,11 @@ import kotlin.math.cos
 import kotlin.math.max
 import kotlin.system.measureTimeMillis
 
-data class AntConfig(
-    val angleDegs: Float = 30f
-)
 enum class AntState(val value: Byte) {
     empty(0), full(1);
     companion object {
         private val map = values().associateBy(AntState::value)
         fun fromValue(type: Byte) = map[type] ?: throw IllegalArgumentException()
-    }
-}
-data class Ant(val conf: AntConfig, val pos: Vector2, val vel: Vector2) {
-
-    // static config
-    // max_angle_lookup
-
-    operator fun invoke(shapes: ShapeRenderer?) {
-        shapes?.apply {
-            // save state
-            val old = color
-            color = Color.RED
-
-            val viewVel = vel
-            rectLine(pos, pos + viewVel, 10f)
-
-            color = Color.GOLD
-            val lBound = pos + viewVel.rotatedDeg(-conf.angleDegs)
-            val rBound = pos + viewVel.rotatedDeg(conf.angleDegs)
-            triangle(pos.x, pos.y, lBound.x, lBound.y, rBound.x, rBound.y)
-
-            // load state
-            color = old
-        }
-    }
-    operator fun invoke(draw: Batch?) {
-
     }
 }
 
@@ -71,23 +35,23 @@ internal fun Vector2.normalized(): Vector2 = Vector2(this).nor()
 data class AntsConfig(
     val width: Int,
     val height: Int,
-    val font: BitmapFont,
     val totalCount: Int = 200,
     val maxSpeed: Float = 20.0f, ///< per second
     val angleDegs: Float = 40f, ///< angle of detection for ant in degrees
 )
 
 class Ants(
-    private val conf: AntsConfig,
+    val conf: AntsConfig,
     private val ctx: CLContext,
     private val cmd: CLCommandQueue,
     private val ground: Ground,
     private val pheromones: Pheromones = Pheromones(ctx, cmd, conf.width, conf.height),
-) : Actor() {
-    // internal conf
+) : IHeadlessActor {
+    var debug = false
 
-    private val w = ground.w
-    private val h = ground.h
+    // internal conf
+    val width = ground.width
+    val height = ground.height
     private var time = 0f
 
     // hack for cl compile
@@ -128,7 +92,7 @@ class Ants(
     //private val outPheromones = ctx.createBuffer(pheromones.size)
 
     //private val shapeRenderer = ShapeRenderer()
-    private val tex = Texture("tex/carpenter-ant-small.png")
+
     private var actlast: Long = 0
 
 
@@ -175,7 +139,6 @@ class Ants(
     override fun act(delta: Float) {
         actlast = measureTimeMillis {
             time += delta
-            super.act(delta)
             //val r = (max_speed * delta)
             //val s = ceil(PI * r * r * angle_degs / 360)
             pheromones.act(delta)
@@ -185,8 +148,8 @@ class Ants(
                 setArg( a++, time)
                 setArg( a++, delta)
                 setArg( a++, conf.maxSpeed)
-                setArg( a++, w)
-                setArg( a++, h)
+                setArg( a++, width)
+                setArg( a++, height)
                 setArg( a++, ground.shared.remoteBuff)
                 setArg( a++, pheromones.shared.remoteBuff)
                 setArg( a++, conf.totalCount)
@@ -236,7 +199,7 @@ class Ants(
         }
 
         if ( r == 0 ) {
-            this.fire(PauseEvent(pause = true))
+            //this.fire(PauseEvent(pause = true))
             warn("EMPTY SCAN")
             val pos = posBuff.asFloatBuffer()
             val vel = velBuff.asFloatBuffer()
@@ -262,66 +225,17 @@ class Ants(
         }
     }
 
-    override fun draw(batch: Batch?, parentAlpha: Float) {
-        super.draw(batch, parentAlpha)
-        batch?.let {
-            forEach { pos, vel, st ->
-
-                // pos2world
-                it.draw(
-                    tex,
-                    pos.x - tex.width / 2f,
-                    pos.y - tex.height / 2f,
-                    tex.width / 2f, tex.height / 2f,
-                    tex.width.toFloat(), tex.height.toFloat(),
-                    1f, 1f, 90+ vel.angleDeg(),
-                    0, 0,
-                    tex.width, tex.height,
-                    false, true
-                )
-
-                //font.draw(batch, "%.2fx%.2f".format(p[2*i], p[2*i+1]), pos.x, pos.y + 20f )
-                // if this ant debug
-                // selected
-                if ( debug ) {
-                    conf.font.draw(batch, "%.2fx%.2f".format(vel.x, vel.y), pos.x, pos.y + 20f)
-                    //conf.font.draw(batch, actlast.toString(), pos.x - 10f, pos.y - 20f)
-                    conf.font.draw(batch, st.toString(), pos.x + 10f, pos.y - 20f)
-                }
-            }
-        }
-
-//            with(shapeRenderer) {
-//                projectionMatrix = it.projectionMatrix
-//                color = Color.RED
-//                begin(ShapeRenderer.ShapeType.Line)
-//
-//                for ( i in 0 until p.capacity() / 2 ) {
-//                    point(p[2*i], p[(2*i) + 1], 0f)
-//                }
-//                end()
-//            }
-        //}
-    }
-
     fun forEach(block: (pos: Vector2, vel: Vector2, state: AntState) -> Unit) {
-        val scaleStageX = stage.width / w.toFloat()
-        val scaleStageY = stage.height / h.toFloat()
+
         val p = posBuff.asFloatBuffer()
         val v = velBuff.asFloatBuffer()
         val s = stateBuff
         for ( i in 0 until conf.totalCount ) {
-            val pos = Vector2(p[2 * i] * scaleStageX, (h - p[2 * i + 1]) * scaleStageY)
-            val vel = Vector2(v[2 * i] * scaleStageX, -v[2 * i + 1] * scaleStageY)
+            val pos = Vector2(p[2 * i] , (height - p[2 * i + 1]))
+            val vel = Vector2(v[2 * i] , -v[2 * i + 1])
             val st = AntState.fromValue(s[i])
             block(pos, vel, st)
         }
     }
 
-    override fun drawDebug(shapes: ShapeRenderer?) {
-        super.drawDebug(shapes)
-        forEach { pos, vel, _ ->
-            Ant(AntConfig(conf.angleDegs), pos, vel).invoke(shapes)
-        }
-    }
 }

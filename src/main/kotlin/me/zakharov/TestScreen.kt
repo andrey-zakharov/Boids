@@ -1,20 +1,23 @@
 package me.zakharov.me.zakharov
 
 import com.badlogic.gdx.Gdx
-import com.badlogic.gdx.Input
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.utils.viewport.FitViewport
-import ktx.app.KtxScreen
 import me.apemanzilla.ktcl.CLCommandQueue
 import me.apemanzilla.ktcl.CLContext
 import me.zakharov.Game
-import me.zakharov.Pheromones
+import me.zakharov.ants.gdx.AntsDrawer
+import me.zakharov.ants.model.Ants
+import me.zakharov.ants.model.AntsConfig
+import me.zakharov.ants.model.Ground
 import me.zakharov.events.PauseEvent
-import me.zakharov.me.zakharov.utils.SimpleGameScreen
+import me.zakharov.me.zakharov.ants.gdx.GroundDrawer
+import me.zakharov.me.zakharov.ants.gdx.createFromTexture
+import me.zakharov.utils.SimpleGameScreen
 import java.util.*
 import kotlin.random.Random
 
@@ -30,15 +33,17 @@ class TestScreen(
         setToOrtho(false, w.toFloat(), h.toFloat())
     }
 
-    private val ground by lazy { Ground(Texture("tex/ground-2.png"), ctx, cmd, 80, 80) }
-    private val ants by lazy { Ants(AntsConfig(ground.w, ground.h, game.font), ctx, cmd, ground) }
+    private val ground by lazy { Ground(ctx, cmd, 80, 80).createFromTexture(Texture("tex/ground-2.png")) }
+    private val ants by lazy { Ants(AntsConfig(ground.width, ground.height), ctx, cmd, ground) }
+    private val groundDrawer by lazy { GroundDrawer(ground) }
+    private val antsDrawer by lazy { AntsDrawer(ants, game.font ) }
     private var pause = false
 
     val scene = Stage(FitViewport(w.toFloat(), h.toFloat(), camera), game.batch).apply {
         println("Creating scene")
-        addActor(ground)
-        addActor(ants)
-        ants.addListener {
+        addActor(groundDrawer)
+        addActor(antsDrawer)
+        antsDrawer.addListener {
             when(it) {
                 is PauseEvent -> {
                     pause = it.pause

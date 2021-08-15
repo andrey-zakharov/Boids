@@ -1,4 +1,4 @@
-package me.zakharov.me.zakharov.utils
+package me.zakharov.utils
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.InputMultiplexer

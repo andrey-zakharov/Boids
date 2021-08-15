@@ -3,14 +3,14 @@ package me.zakharov
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.*
 import com.badlogic.gdx.graphics.g2d.Batch
-import com.badlogic.gdx.graphics.glutils.FloatTextureData
 import com.badlogic.gdx.graphics.glutils.ShaderProgram
 import com.badlogic.gdx.math.MathUtils.lerp
 import com.badlogic.gdx.scenes.scene2d.Actor
 import me.apemanzilla.ktcl.CLCommandQueue
 import me.apemanzilla.ktcl.CLContext
 import me.apemanzilla.ktcl.cl10.*
-import java.nio.ByteBuffer
+import me.zakharov.utils.WrappedFloatTextureData
+
 data class PheromonesConfig(
     val alpha: Float = 0.95f, // in 1 sec
     val thres: Float = 0.01f
@@ -68,12 +68,6 @@ class Pheromones(
     }
     /// end opencl stuff
 
-    internal class WrappedFloatTextureData(w: Int, h: Int, private val buff: ByteBuffer)
-        : FloatTextureData(w, h, GL30.GL_R32F, GL30.GL_RED, 0, false) {
-        override fun consumeCustomData(target: Int) {
-            Gdx.gl.glTexImage2D(target, 0, GL30.GL_R32F, width, height, 0, GL30.GL_RED, GL20.GL_FLOAT, buff)
-        }
-    }
     private val wrappedTexData = WrappedFloatTextureData(w, h, m.buff)
     private val glTex = Texture(wrappedTexData).apply {
         setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest)

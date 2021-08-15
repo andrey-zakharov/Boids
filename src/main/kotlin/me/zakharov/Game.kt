@@ -6,17 +6,26 @@ import com.badlogic.gdx.InputMultiplexer
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration
 import com.badlogic.gdx.graphics.OrthographicCamera
-import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
+import com.badlogic.gdx.scenes.scene2d.Stage
+import com.badlogic.gdx.utils.Scaling
+import com.badlogic.gdx.utils.viewport.ScalingViewport
 import ktx.app.KtxGame
 import ktx.app.KtxInputAdapter
 import ktx.app.KtxScreen
 import me.apemanzilla.ktcl.CLDevice
 import me.apemanzilla.ktcl.CLException
 import me.apemanzilla.ktcl.cl10.*
-import me.zakharov.me.zakharov.*
-import me.zakharov.me.zakharov.utils.SimpleGameScreen
+import me.zakharov.ants.gdx.AntsDrawer
+import me.zakharov.ants.model.Ants
+import me.zakharov.ants.model.AntsConfig
+import me.zakharov.ants.model.Ground
+import me.zakharov.ants.model.GroundType
+import me.zakharov.me.zakharov.IGameModel
+import me.zakharov.me.zakharov.PrimaryGameModel
+import me.zakharov.me.zakharov.ants.gdx.GroundDrawer
+import me.zakharov.utils.SimpleGameScreen
 
 val d: (m: Any) -> Unit = ::println
 val warn: (m: Any) -> Unit = ::println
@@ -38,8 +47,20 @@ class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
 
     private val screen2 by lazy { object: SimpleGameScreen(camera = mainCam, batch = batch, input = inputBus) {
         // TODO Ground.fromMatrix, fromPicture ctor
-        private val ground by lazy { Ground(Texture("tex/ground-test.png"), ctx, cmd, 5, 5) }
-        private val ants by lazy { Ants(AntsConfig(5, 5,font, 1), ctx, cmd, ground) }
+        private val ground by lazy { Ground(ctx, cmd, 5, 5) {
+            this[0, 0] = GroundType.Nest
+            this[1, 0] = GroundType.Obstacle
+            this[2, 0] = GroundType.Food
+        } }
+        private val ants by lazy { Ants(AntsConfig(5, 5, 1), ctx, cmd, ground) }
+
+        private val groundDrawer by lazy { GroundDrawer(ground) }
+        private val antsDrawer by lazy { AntsDrawer(ants, font) }
+
+        private val stage = Stage( ScalingViewport(Scaling.none, w.toFloat(), h.toFloat(), mainCam), batch ).apply {
+            addActor(groundDrawer)
+            addActor(antsDrawer)
+        }
 
 
 
@@ -74,7 +95,7 @@ class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
         Gdx.input.inputProcessor = inputBus
         val durMs = kotlin.system.measureTimeMillis {
             addScreen(screen1)
-            addScreen(screen2)
+            addScreen(SimpleGameScreen::class.java, screen2)
             setScreen<MainScreen>()
             super.create()
         }

@@ -1,4 +1,4 @@
-package me.zakharov.me.zakharov
+package me.zakharov
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
@@ -12,17 +12,17 @@ import com.badlogic.gdx.scenes.scene2d.InputListener
 import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.utils.viewport.FitViewport
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import ktx.app.KtxScreen
 import me.apemanzilla.ktcl.CLCommandQueue
 import me.apemanzilla.ktcl.CLContext
-import me.zakharov.Game
-import me.zakharov.Pheromones
+import me.zakharov.ants.gdx.AntsDrawer
+import me.zakharov.ants.model.Ants
+import me.zakharov.ants.model.AntsConfig
+import me.zakharov.ants.model.Ground
 import me.zakharov.events.PauseEvent
+import me.zakharov.me.zakharov.ants.gdx.GroundDrawer
+import me.zakharov.me.zakharov.ants.gdx.createFromTexture
 import java.util.*
-import kotlin.properties.Delegates
 import kotlin.random.Random
 
 class MainScreen(
@@ -38,22 +38,26 @@ class MainScreen(
         setToOrtho(false, w.toFloat(), h.toFloat())
     }
 
-    private val ground by lazy { Ground(Texture(
+    private val ground by lazy { Ground(ctx, cmd, w / 20, h / 20).createFromTexture(
+        Texture(
 //        "tex/ground-2.png"
-        "tex/ground-test.png"
+            "tex/ground-test.png"
 //        "tex/ground.png"
 //        "tex/pic.png"
-    ), ctx, cmd, w / 20, h / 20) }
-    private val pher by lazy { Pheromones(ctx, cmd, ground.w, ground.h) }
-    private val ants by lazy { Ants(AntsConfig(ground.w, ground.h, game.font, 1), ctx, cmd, ground, pher) }
+        )
+    ) }
+    private val pher by lazy { Pheromones(ctx, cmd, ground.width, ground.height) }
+    private val ants by lazy { Ants(AntsConfig(ground.width, ground.height,100), ctx, cmd, ground, pher) }
+    private val groundDrawer by lazy { GroundDrawer(ground) }
+    private val antsDrawer by lazy { AntsDrawer(ants, game.font) }
     private var pause = false
     private var oneStep = false
 
     private val scene = Stage(FitViewport(w.toFloat(), h.toFloat(), camera), game.batch).apply {
         println("Creating scene")
-        addActor(ground)
-        addActor(ants.apply { debug = false })
-        ants.addListener {
+        addActor(groundDrawer)
+        addActor(antsDrawer.apply { debug = false })
+        antsDrawer.addListener {
             when(it) {
                 is PauseEvent -> {
                     pause = it.pause

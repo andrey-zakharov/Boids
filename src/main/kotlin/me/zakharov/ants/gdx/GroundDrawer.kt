@@ -1,0 +1,56 @@
+package me.zakharov.me.zakharov.ants.gdx
+
+import com.badlogic.gdx.graphics.Color
+import com.badlogic.gdx.graphics.Pixmap
+import com.badlogic.gdx.graphics.Texture
+import com.badlogic.gdx.graphics.g2d.Batch
+import com.badlogic.gdx.scenes.scene2d.Actor
+import me.zakharov.ants.model.GroundType
+import me.zakharov.ants.model.Ground
+import me.zakharov.d
+import me.zakharov.utils.WrappedFloatTextureData
+
+class GroundDrawer(model: Ground) : Actor() {
+
+    private val wrappedTexData = WrappedFloatTextureData(model.width, model.height, model.shared.buff)
+    private val glTex = Texture(wrappedTexData).apply {
+        setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest)
+    }
+    override fun draw(batch: Batch?, parentAlpha: Float) {
+        super.draw(batch, parentAlpha)
+        batch?.draw(glTex, 0f, 0f, stage.width, stage.height)
+    }
+
+}
+
+fun Ground.createFromTexture(groundTexture: Texture): Ground {
+    report.reset()
+
+    groundTexture.textureData.prepare()
+    val px = groundTexture.textureData.consumePixmap()
+    val cpx = Pixmap(width, height, Pixmap.Format.RGBA8888).apply {
+        filter = Pixmap.Filter.NearestNeighbour
+        blending = Pixmap.Blending.None
+        drawPixmap(px, 0, 0, px.width, px.height, 0, 0, width, height)
+    }
+
+    val c = Color()
+    for (y in 0 until height) {
+        for ( x in 0 until width) {
+            c.set(cpx.getPixel(x, y))
+            val groundType = when {
+                (c.g > c.r && c.g > c.b) -> GroundType.Food
+                (c.r == c.g && c.r == c.b && c.r > 0) -> GroundType.Nest
+                (c.r > c.g && c.r > c.b) -> GroundType.Obstacle
+                else -> GroundType.Empty
+            }
+
+            this[x, y] = groundType
+            //cpx.drawPixel(x, y, Color.rgba8888(groundType.color))
+        }
+    }
+
+    groundTexture.textureData.disposePixmap()
+    d(report)
+    return this
+}
