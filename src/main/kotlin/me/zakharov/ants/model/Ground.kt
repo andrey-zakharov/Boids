@@ -1,8 +1,6 @@
 package me.zakharov.ants.model
 
 import com.badlogic.gdx.graphics.Color
-import com.badlogic.gdx.graphics.Texture
-import com.badlogic.gdx.graphics.g2d.Batch
 import com.badlogic.gdx.math.Rectangle
 import com.badlogic.gdx.math.Vector2
 import me.apemanzilla.ktcl.CLCommandQueue
@@ -10,7 +8,6 @@ import me.apemanzilla.ktcl.CLContext
 import me.apemanzilla.ktcl.cl10.KernelAccess
 import me.zakharov.Matrix2d
 import me.zakharov.createByteMatrix2d
-import me.zakharov.d
 import me.zakharov.share
 import me.zakharov.utils.IHeadlessActor
 

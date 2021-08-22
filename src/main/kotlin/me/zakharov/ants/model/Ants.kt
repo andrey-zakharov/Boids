@@ -6,8 +6,6 @@ import me.apemanzilla.ktcl.CLContext
 import me.apemanzilla.ktcl.cl10.*
 import me.zakharov.Const.BOOL_SIZE
 import me.zakharov.Const.FLOAT2_SIZE
-import me.zakharov.PherType
-import me.zakharov.Pheromones
 import me.zakharov.d
 import me.zakharov.utils.IHeadlessActor
 import me.zakharov.warn

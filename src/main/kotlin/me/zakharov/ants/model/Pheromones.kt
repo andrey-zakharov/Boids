@@ -1,15 +1,13 @@
-package me.zakharov
+package me.zakharov.ants.model
 
-import com.badlogic.gdx.Gdx
-import com.badlogic.gdx.graphics.*
-import com.badlogic.gdx.graphics.g2d.Batch
-import com.badlogic.gdx.graphics.glutils.ShaderProgram
 import com.badlogic.gdx.math.MathUtils.lerp
-import com.badlogic.gdx.scenes.scene2d.Actor
 import me.apemanzilla.ktcl.CLCommandQueue
 import me.apemanzilla.ktcl.CLContext
 import me.apemanzilla.ktcl.cl10.*
-import me.zakharov.utils.WrappedFloatTextureData
+import me.zakharov.createFloatMatrix2d
+import me.zakharov.share
+import me.zakharov.utils.IHeadlessActor
+
 
 data class PheromonesConfig(
     val alpha: Float = 0.95f, // in 1 sec
@@ -34,20 +32,13 @@ enum class PherType(val v: Float) {
 class Pheromones(
         ctx: CLContext,
         private val cmd: CLCommandQueue,
-        w: Int,
-        h: Int,
+        val width: Int,
+        val height: Int,
         kernel: String = Pheromones::class.java.getResource("/kernels/decay.kernel")!!.readText()
-) : Actor() {
+) : IHeadlessActor {
 
     private val alpha: Float = 0.75f // in 1 sec
     private val thres: Float = 0.003f
-
-    private val shaderProgram = ShaderProgram(
-        Gdx.files.internal("shaders/pheromones.vert"),
-        Gdx.files.internal("shaders/pheromones.frag")
-    ).apply {
-        assert(isCompiled) { "shader compile failed: $log" }
-    }
 
     fun reset(): Boolean {
         m.clear()
@@ -58,7 +49,7 @@ class Pheromones(
     private val prog = ctx.createProgramWithSource( kernel )
             .also { it.build() }
 
-    internal val m = createFloatMatrix2d(w, h)
+    internal val m = createFloatMatrix2d(width, height)
     internal val shared = ctx.share(m.buff)
 
     private val kernel = prog.createKernel("decay_kernel").apply {
@@ -68,10 +59,6 @@ class Pheromones(
     }
     /// end opencl stuff
 
-    private val wrappedTexData = WrappedFloatTextureData(w, h, m.buff)
-    private val glTex = Texture(wrappedTexData).apply {
-        setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest)
-    }
 
     override fun act(delta: Float) {
         with(kernel) {
@@ -84,19 +71,8 @@ class Pheromones(
             finish()
             enqueueReadBuffer(shared.remoteBuff, shared.buff)
         }
-        super.act(delta)
     }
 
-    override fun draw(batch: Batch?, parentAlpha: Float) {
-        super.draw(batch, parentAlpha)
-
-        batch?.let { b ->
-            b.shader = shaderProgram
-            glTex.load(wrappedTexData)
-            b.draw(glTex, 0f, 0f, stage.width, stage.height)
-            b.shader = null
-        }
-    }
 
     fun print() {
 

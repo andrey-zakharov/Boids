@@ -19,9 +19,11 @@ import ktx.app.KtxScreen
 import me.apemanzilla.ktcl.CLCommandQueue
 import me.apemanzilla.ktcl.CLContext
 import me.zakharov.ants.gdx.AntsDrawer
+import me.zakharov.ants.gdx.PheromonesDrawer
 import me.zakharov.ants.model.Ants
 import me.zakharov.ants.model.AntsConfig
 import me.zakharov.ants.model.Ground
+import me.zakharov.ants.model.Pheromones
 import me.zakharov.events.PauseEvent
 import me.zakharov.me.zakharov.ants.gdx.GroundDrawer
 import me.zakharov.me.zakharov.ants.gdx.createFromTexture
@@ -43,17 +45,7 @@ class MainScreen(
         setToOrtho(false, w.toFloat(), h.toFloat())
     }
 
-    private val ground by lazy { Ground(ctx, cmd, w/4, h/4)/* {
-        var type = 0
-        val vals = GroundType.values()
-        for (j in 0 until height ) {
-            for (i in 0 until width ) {
-                this[i, j] = vals[type]
-                type = (type + 1) % vals.size
-            }
-        }
-
-    }*/.createFromTexture( Texture(
+    private val ground by lazy { Ground(ctx, cmd, w/4, h/4).createFromTexture( Texture(
 //        "tex/ground-2.png"
             "tex/ground-test.png"
 //        "tex/ground.png"
@@ -64,6 +56,7 @@ class MainScreen(
     private val ants by lazy { Ants(AntsConfig(ground.width, ground.height,100), ctx, cmd, ground, pher) }
     private val groundDrawer by lazy { GroundDrawer(ground) }
     private val antsDrawer by lazy { AntsDrawer(ants, game.font) }
+    private val pherDrawer by lazy { PheromonesDrawer(pher) }
     private var pause = false
     private var oneStep = false
 
@@ -84,6 +77,7 @@ class MainScreen(
             }
         })
         addActor(groundDrawer)
+        addActor(pherDrawer)
         addActor(antsDrawer.apply { debug = false })
         antsDrawer.addListener {
             when(it) {
