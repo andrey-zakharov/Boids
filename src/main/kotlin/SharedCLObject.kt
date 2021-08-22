@@ -1,17 +1,13 @@
 package me.zakharov
 
-import com.badlogic.gdx.graphics.Texture
-import com.badlogic.gdx.graphics.g2d.Batch
-import com.badlogic.gdx.scenes.scene2d.Actor
 import me.apemanzilla.ktcl.CLBuffer
 import me.apemanzilla.ktcl.CLCommandQueue
 import me.apemanzilla.ktcl.CLContext
 import me.apemanzilla.ktcl.cl10.*
 import me.zakharov.Const.FLOAT_SIZE
 import org.lwjgl.BufferUtils
-import java.nio.Buffer
 import java.nio.ByteBuffer
-import java.util.*
+import java.nio.ByteOrder
 
 interface SharedBuffer {
     val buff: ByteBuffer
@@ -49,7 +45,7 @@ fun ByteBuffer.enqueueRead( cmd: CLCommandQueue, remoteBuff: CLBuffer) {
 }
 
 abstract class Matrix2d<T>(val width: Int, val height: Int, val elementSize: Int) {
-    val buff: ByteBuffer = BufferUtils.createByteBuffer(width * height * elementSize)
+    val buff: ByteBuffer = BufferUtils.createByteBuffer(width * height * elementSize).order(ByteOrder.nativeOrder())
     abstract operator fun get(x: Int, y: Int): T
     abstract operator fun set(x: Int, y: Int, v: T)
     fun clear() {

@@ -9,6 +9,7 @@ import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.scenes.scene2d.Stage
+import com.badlogic.gdx.scenes.scene2d.ui.Skin
 import com.badlogic.gdx.utils.Scaling
 import com.badlogic.gdx.utils.viewport.ScalingViewport
 import ktx.app.KtxGame
@@ -27,11 +28,12 @@ import me.zakharov.me.zakharov.PrimaryGameModel
 import me.zakharov.me.zakharov.ants.gdx.GroundDrawer
 import me.zakharov.utils.SimpleGameScreen
 
-val d: (m: Any) -> Unit = ::println
-val warn: (m: Any) -> Unit = ::println
+val d: (m: Any?) -> Unit = ::println
+val warn: (m: Any?) -> Unit = ::println
 
 class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
     val batch by lazy { SpriteBatch() }
+    val uiSkin by lazy { Skin(Gdx.files.internal("skins/comic/comic-ui.json")) }
     val font by lazy { BitmapFont() }
     val model: IGameModel by lazy { PrimaryGameModel() }
 

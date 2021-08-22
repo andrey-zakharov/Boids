@@ -1,28 +1,67 @@
 package me.zakharov.me.zakharov.ants.gdx
 
+import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.Batch
+import com.badlogic.gdx.graphics.glutils.ShaderProgram
 import com.badlogic.gdx.scenes.scene2d.Actor
+import me.apemanzilla.ktcl.toArray
 import me.zakharov.ants.model.GroundType
 import me.zakharov.ants.model.Ground
 import me.zakharov.d
+import me.zakharov.utils.WrappedByteTextureData
 import me.zakharov.utils.WrappedFloatTextureData
+import me.zakharov.utils.print
+import me.zakharov.utils.safeSetUniform
 
-class GroundDrawer(model: Ground) : Actor() {
+class GroundDrawer(private val model: Ground) : Actor() {
 
-    private val wrappedTexData = WrappedFloatTextureData(model.width, model.height, model.shared.buff)
-    private val glTex = Texture(wrappedTexData).apply {
+    var div = 1f // uniform
+        set(v) {
+            shaderProgram.bind()
+            shaderProgram.safeSetUniform("div", v)
+            field = v
+        }
+
+    var nbyte = 0
+        set(v) {
+            shaderProgram.bind()
+            shaderProgram.safeSetUniform("nbyte", nbyte)
+            field = v
+        }
+    private val wrappedTexData by lazy { WrappedByteTextureData(model.width, model.height, model.shared.buff) }
+    private val glTex by lazy { Texture(wrappedTexData).apply {
         setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest)
+        load(wrappedTexData)
+    } }
+
+    private val shaderProgram = ShaderProgram(
+        Gdx.files.internal("shaders/ground.vert"),
+        Gdx.files.internal("shaders/ground.frag")
+    ).apply {
+        assert(isCompiled) { "shader compile failed: $log" }
+        bind()
+        safeSetUniform("div", div)
     }
+
     override fun draw(batch: Batch?, parentAlpha: Float) {
         super.draw(batch, parentAlpha)
-        batch?.draw(glTex, 0f, 0f, stage.width, stage.height)
+//        shaderProgram.setUniformf("div", div)
+        batch?.let {
+            it.shader = shaderProgram//.also {
+                //it.setUniformf("div", div)
+            //}
+            //model.shared.buff.print()
+            it.draw(glTex, 0f, 0f, stage.width, stage.height)
+            it.shader = null
+        }
     }
 
 }
 
+/// this is GDX addition for model Ground
 fun Ground.createFromTexture(groundTexture: Texture): Ground {
     report.reset()
 

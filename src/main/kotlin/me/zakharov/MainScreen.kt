@@ -3,13 +3,16 @@ package me.zakharov
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
 import com.badlogic.gdx.InputMultiplexer
-import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.OrthographicCamera
-import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
+import com.badlogic.gdx.scenes.scene2d.Actor
 import com.badlogic.gdx.scenes.scene2d.InputEvent
 import com.badlogic.gdx.scenes.scene2d.InputListener
 import com.badlogic.gdx.scenes.scene2d.Stage
+import com.badlogic.gdx.scenes.scene2d.ui.Label
+import com.badlogic.gdx.scenes.scene2d.ui.Slider
+import com.badlogic.gdx.scenes.scene2d.ui.VerticalGroup
+import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener
 import com.badlogic.gdx.utils.viewport.FitViewport
 import kotlinx.coroutines.*
 import ktx.app.KtxScreen
@@ -23,6 +26,8 @@ import me.zakharov.events.PauseEvent
 import me.zakharov.me.zakharov.ants.gdx.GroundDrawer
 import me.zakharov.me.zakharov.ants.gdx.createFromTexture
 import java.util.*
+import kotlin.math.log
+import kotlin.math.pow
 import kotlin.random.Random
 
 class MainScreen(
@@ -38,14 +43,23 @@ class MainScreen(
         setToOrtho(false, w.toFloat(), h.toFloat())
     }
 
-    private val ground by lazy { Ground(ctx, cmd, w / 20, h / 20).createFromTexture(
-        Texture(
+    private val ground by lazy { Ground(ctx, cmd, w/4, h/4)/* {
+        var type = 0
+        val vals = GroundType.values()
+        for (j in 0 until height ) {
+            for (i in 0 until width ) {
+                this[i, j] = vals[type]
+                type = (type + 1) % vals.size
+            }
+        }
+
+    }*/.createFromTexture( Texture(
 //        "tex/ground-2.png"
             "tex/ground-test.png"
 //        "tex/ground.png"
 //        "tex/pic.png"
-        )
-    ) }
+        ) )
+    }
     private val pher by lazy { Pheromones(ctx, cmd, ground.width, ground.height) }
     private val ants by lazy { Ants(AntsConfig(ground.width, ground.height,100), ctx, cmd, ground, pher) }
     private val groundDrawer by lazy { GroundDrawer(ground) }
@@ -55,17 +69,7 @@ class MainScreen(
 
     private val scene = Stage(FitViewport(w.toFloat(), h.toFloat(), camera), game.batch).apply {
         println("Creating scene")
-        addActor(groundDrawer)
-        addActor(antsDrawer.apply { debug = false })
-        antsDrawer.addListener {
-            when(it) {
-                is PauseEvent -> {
-                    pause = it.pause
-                    true
-                }
-                else -> false
-            }
-        }
+        //stage
         addListener( object: InputListener() {
             override fun keyUp(event: InputEvent?, keycode: Int): Boolean {
                 when(keycode) {
@@ -79,30 +83,44 @@ class MainScreen(
                 return true
             }
         })
-
-        //Gdx.input.inputProcessor = this
+        addActor(groundDrawer)
+        addActor(antsDrawer.apply { debug = false })
+        antsDrawer.addListener {
+            when(it) {
+                is PauseEvent -> {
+                    pause = it.pause
+                    true
+                }
+                else -> false
+            }
+        }
+        addActor( VerticalGroup().run {
+            addActor( Slider( 0f, 7f, 1f, false, game.uiSkin ).run {
+                addListener(object: ChangeListener() {
+                    override fun changed(event: ChangeEvent?, actor: Actor?) {
+                        groundDrawer.nbyte = this@run.value.toInt()
+                    }
+                })
+                this
+            })
+            addActor(Label("tested", game.uiSkin))
+            addActor(Slider(-2f, 2f, 0.1f, false, game.uiSkin ).run {
+                value = log(groundDrawer.div, 10f)
+                addListener(object : ChangeListener() {
+                    override fun changed(event: ChangeEvent?, actor: Actor?) {
+                        groundDrawer.div = 10f.pow(this@run.value)
+                    }
+                })
+                this
+            })
+            setFillParent(true)
+            this
+        })
     }
 
     val random = Random(Calendar.getInstance().timeInMillis)
 
-    private val pixmap = Pixmap(w, h, Pixmap.Format.RGB888).apply {
-        filter = Pixmap.Filter.NearestNeighbour
-    }
-
-    private var tex = Texture(pixmap).apply {
-        setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
-    }
     override fun show() {
-        pixmap.pixels.apply {
-            for( i in 0 until capacity()) {
-                put(i, random.nextInt().toByte())
-            }
-        }
-        pixmap.setColor(Color.RED)
-        pixmap.drawCircle( pixmap.width / 2, pixmap.height / 2, 100)
-        pixmap.setColor(Color.BLUE)
-        pixmap.drawRectangle(0, 0, pixmap.width, pixmap.height)
-        tex = Texture(pixmap)
         input?.apply {
             addProcessor(scene)
         }
@@ -151,6 +169,7 @@ class MainScreen(
         scene.batch.begin()
         game.font.draw(scene.batch, "fps: ${Gdx.graphics.framesPerSecond}", 0f, h-20f)
         game.font.draw(scene.batch, "debug: ${scene.isDebugAll}", 0f, h-35f)
+        game.font.draw(scene.batch, "div: ${groundDrawer.div}", 0f, h-50f)
         scene.batch.end()
         //game.batch.end()
 

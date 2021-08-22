@@ -54,8 +54,6 @@ class TestScreen(
         }
     }
 
-    val random = Random(Calendar.getInstance().timeInMillis)
-
     private val pixmap = Pixmap(w, h, Pixmap.Format.RGB888).apply {
         filter = Pixmap.Filter.NearestNeighbour
     }
@@ -63,19 +61,6 @@ class TestScreen(
     private var tex = Texture(pixmap).apply {
         setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
     }
-    override fun show() {
-        pixmap.pixels.apply {
-            for( i in 0 until capacity()) {
-                put(i, random.nextInt().toByte())
-            }
-        }
-        pixmap.setColor(Color.RED)
-        pixmap.drawCircle( pixmap.width / 2, pixmap.height / 2, 100)
-        pixmap.setColor(Color.BLUE)
-        pixmap.drawRectangle(0, 0, pixmap.width, pixmap.height)
-        tex = Texture(pixmap)
-    }
-
 
     override fun render(delta: Float) {
         if ( !pause ) {
