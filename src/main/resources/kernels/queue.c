@@ -18,6 +18,9 @@ void queue_push(queue* q, uint2 v) {
 	if (q->pos_tail >= MAX_QUEUE_SIZE ) {
 		return;
 	}
+#ifdef DEBUG
+    printf("queue pushing (%d, %d)\n", v.x, v.y);
+#endif
     q->queue[q->pos_tail++] = v;
 }
 
@@ -34,5 +37,9 @@ bool check_queued( queue const * q, const uint2 p) {
 }
 
 void queue_print( queue const * q ) {
-    printf("queue size: %d\n", q->pos_tail - q->pos_front);
+    printf("queue size: %d (front - %d)\n", q->pos_tail - q->pos_front, q->pos_front);
+    for( size_t p = 0; p < q->pos_tail; p++ ) {
+        printf(" %d - (%u, %u)", p, q->queue[p].x, q->queue[p].y);
+    }
+    printf("\n");
 }

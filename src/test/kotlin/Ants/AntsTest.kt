@@ -3,29 +3,60 @@
  */
 package Ants
 
-import com.badlogic.gdx.Gdx
-import com.badlogic.gdx.graphics.Pixmap
-import com.badlogic.gdx.graphics.Texture
-import com.badlogic.gdx.utils.GdxNativesLoader
+import com.badlogic.gdx.math.Vector2
 import me.apemanzilla.ktcl.cl10.createCommandQueue
 import me.apemanzilla.ktcl.cl10.createContext
 import me.apemanzilla.ktcl.cl10.getDefaultDevice
 import me.apemanzilla.ktcl.cl10.getPlatforms
-import me.zakharov.me.zakharov.Ground
+import me.zakharov.ants.model.*
 import kotlin.test.Test
+import kotlin.test.assertEquals
 
 class AntsTest {
-    init {
-        GdxNativesLoader.load();
-    }
-    @Test fun singleAntScanning() {
-        val device = getPlatforms()[0].getDefaultDevice()!!
-        val ctx = device.createContext()
-        val cmd = device.createCommandQueue(ctx)
-        //create ground texture
-        //assert(Gdx.gl != null) { "no gl context" }
-        //val emptyGround = Texture(Pixmap(10, 10, Pixmap.Format.RGBA8888))
-        //val ground = Ground(emptyGround, ctx, cmd, 10, 10)
 
+        // GdxNativesLoader.load();
+    val device = getPlatforms()[0].getDefaultDevice()!!
+    val ctx = device.createContext()
+    val cmd = device.createCommandQueue(ctx)
+
+    private val antsConfig3x3 = AntsConfig(
+        width = 3,
+        height = 3,
+        totalCount = 1,
+        maxSpeed = 1f,
+        angleDegs =  90f,
+        debug = true
+    )
+
+    @Test fun singleAntScanning() {
+
+        val ground = Ground(ctx, cmd, 3, 3) {
+            this[0, 0] = GroundType.Nest
+        }
+        val pheromones = Pheromones(ctx, cmd, 3, 3)
+        pheromones.m[2, 0] = PherType.food_trail.v
+        val ants = Ants(antsConfig3x3, ctx, cmd, ground, pheromones)
+
+
+//        ants.ejectAntsFromNest()
+        // move forward
+        ants.set(0, AntSnapshot(Vector2(1f, 0f), Vector2(1f, 0f), AntState.empty))
+
+        val s = ants.snapshot()
+        assertEquals(1, s.size)
+        assertEquals(Vector2(1f, 0f), s[0].pos)
+        println(s[0])
+        println( ground.debugString() )
+
+        ants.act(1f)
+
+        val afs = ants.snapshot()
+        assertEquals(Vector2(2f, 0f), afs[0].pos)
+        assertEquals(Vector2(1f, 0f), afs[0].vel)
+
+        //ants.act(1f)
+
+        //val bfs = ants.snapshot()
+        //println(bfs[0])
     }
 }

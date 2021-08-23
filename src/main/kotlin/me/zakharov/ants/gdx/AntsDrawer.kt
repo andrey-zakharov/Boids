@@ -29,10 +29,10 @@ class AntsDrawer(private val model: Ants, private val font: BitmapFont = BitmapF
                 it.draw(
                     tex,
                     pos.x * scaleStageX - tex.width / 2f,
-                    pos.y * scaleStageY - tex.height / 2f,
+                    stage.height - pos.y * scaleStageY + tex.height / 2f,
                     tex.width / 2f, tex.height / 2f,
                     tex.width.toFloat(), tex.height.toFloat(),
-                    1f, 1f, 90+ vel.angleDeg(),
+                    1f, 1f, 90 - vel.angleDeg(),
                     0, 0,
                     tex.width, tex.height,
                     false, true

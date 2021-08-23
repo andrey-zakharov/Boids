@@ -139,7 +139,9 @@ void ant_kernel(
 
     //float2 pos = coords[index];
     //float2 vel = velocities[index];
-    //printf(" = STEP pos=(%.3f, %.3f) vel=(%.3f, %.3f)\n", pos.x, pos.y, vel.x, vel.y);
+#ifdef DEBUG
+    printf(" = STEP pos=(%.3f, %.3f) vel=(%.3f, %.3f)\n", pos.x, pos.y, vel.x, vel.y);
+#endif
     //uchar out_state = state[index];
 
     bool emp = ant_state == empty;
@@ -212,8 +214,9 @@ void ant_kernel(
     /// BFS
     while(!queue_empty(&cells)) {
         uint2 cp = queue_pop(&cells);
-        //printf("= looking around cell %d, %d\n", cp.x, cp.y);
-
+#ifdef DEBUG
+        printf(" = looking around cell %d, %d\n", cp.x, cp.y);
+#endif
         float2 fcp = convert_float2(cp) + (float2)0.5;
         float2 cell_vec = fcp - iorigin;
 
@@ -229,11 +232,9 @@ void ant_kernel(
                 queue_push(&cells, cell_to_add);
             }
         }
-
-        //printf("added to PF queue= %d\n", added);
-        //queue_print(&cells);
-
-        //printf("|| end looking around cell\n");
+#ifdef DEBUG
+        queue_print(&cells);
+#endif
         if ( isequali(cp.x, origin.x) ) {
             continue;
         }
@@ -251,9 +252,16 @@ void ant_kernel(
         ;
 
 #ifdef DEBUG
+        printf("Cell (%d, %d)\n", cp.x, cp.y);
         for( int i = 0; i < 3; i++ ) {
-            //if ( length(forces[0]) > 0)
-            printf("forces[%d]: Vector(%0.5f,\t%0.5f\t).mod=%0.5f\n", i,
+            float l = length(forces[i]);
+            if ( l == 0. ) {
+                continue;
+            }
+            // if ( i == 0 ) printf( i == 0 ? "ground" : "pher", )
+            printf("  forces[%d]: Vector(%0.5f,\t%0.5f\t).mod=%0.5f\n",
+                //i == 0 ? "ground" : (i == 1 ? "pher" : "pherfood"),
+                i,
                 forces[i].x, forces[i].y, length(forces[i]));
         }
 #endif

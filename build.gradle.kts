@@ -74,3 +74,9 @@ jar {
         attributes 'Main-Class': 'Game'
     }
 }*/
+
+tasks.withType<Test> {
+    this.testLogging {
+        this.showStandardStreams = true
+    }
+}

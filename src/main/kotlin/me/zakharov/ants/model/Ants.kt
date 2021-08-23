@@ -30,12 +30,17 @@ internal operator fun Vector2.plus(pos: Vector2) = Vector2(this.x + pos.x, this.
 internal fun Vector2.rotatedDeg(deg: Float): Vector2 = Vector2(this).rotateDeg(deg)
 internal fun Vector2.normalized(): Vector2 = Vector2(this).nor()
 
+data class AntSnapshot(val pos: Vector2, val vel: Vector2, val state: AntState) {
+    override fun toString(): String = "ant [$pos $vel $state]"
+}
+
 data class AntsConfig(
     val width: Int,
     val height: Int,
     val totalCount: Int = 200,
     val maxSpeed: Float = 20.0f, ///< per second
     val angleDegs: Float = 40f, ///< angle of detection for ant in degrees
+    val debug: Boolean = false
 )
 
 class Ants(
@@ -45,7 +50,7 @@ class Ants(
     private val ground: Ground,
     private val pheromones: Pheromones = Pheromones(ctx, cmd, conf.width, conf.height),
 ) : IHeadlessActor {
-    var debug = false
+    var debug = conf.debug
 
     // internal conf
     val width = ground.width
@@ -57,7 +62,7 @@ class Ants(
 
     private val random = Random(Calendar.getInstance().timeInMillis)
     @ExperimentalUnsignedTypes
-    private val maxQueueSize = ceil(PI * conf.maxSpeed * conf.maxSpeed * conf.angleDegs / 360).toUInt()
+    private val maxQueueSize = ceil(PI * conf.maxSpeed * conf.maxSpeed * conf.angleDegs / 360f).toUInt().coerceAtLeast(8u)
 
     @ExperimentalUnsignedTypes
     private val prog = ctx.createProgramWithSource(
@@ -93,30 +98,29 @@ class Ants(
 
     private var actlast: Long = 0
 
-
-    init {
-
+    fun ejectAntsFromNest() {
         val nest = ground.report.getMedian()
         val nestradius = ground.report.getBoundingBox().let {
             (max(it.width, it.height) / 2) + 2f
         }
-        println("Nest = $nest")
+        println("Nest = $nest (radius = $nestradius)")
+        return ejectAntsFromPoint(nest, nestradius)
+    }
+
+    fun ejectAntsFromPoint(center: Vector2, radius: Float) {
         val p = posBuff.asFloatBuffer()
         val v = velBuff.asFloatBuffer()
 
         val angleDiff: Float = PI.toFloat() * 2 / conf.totalCount
-        val tempVector = Vector2(nestradius, 0f)
+        val tempVector = Vector2(radius, 0f)
 
         for (i in 0 until conf.totalCount) {
-
 //            p.put(i * 2, random.nextFloat() * w)
 //            p.put(i * 2 + 1, random.nextFloat() * h)
-            val coords = tempVector + nest
+            val coords = tempVector + center
             p.put(i * 2, coords.x)
             p.put(i * 2 + 1, coords.y)
-
             //val vel = Vector2(max_speed, 0f).rotateRad(2*PI.toFloat()*random.nextFloat())
-            
             //v.put( i * 2, vel.x)
             //v.put( i * 2 + 1, vel.y)
             val vel = tempVector.normalized()
@@ -127,12 +131,6 @@ class Ants(
             tempVector.rotateRad(angleDiff)
         }
     }
-/*
-    Texture(White, empty, 100, 100) {
-
-        drawLine(CellType.Obstacle.Color, 0, 0, 50, 50)
-    }.toGround()
- */
 
     override fun act(delta: Float) {
         actlast = measureTimeMillis {
@@ -229,11 +227,27 @@ class Ants(
         val v = velBuff.asFloatBuffer()
         val s = stateBuff
         for ( i in 0 until conf.totalCount ) {
-            val pos = Vector2(p[2 * i] , (height - p[2 * i + 1]))
-            val vel = Vector2(v[2 * i] , -v[2 * i + 1])
+            val pos = Vector2(p[2 * i] , p[2 * i + 1])
+            val vel = Vector2(v[2 * i] , v[2 * i + 1])
             val st = AntState.fromValue(s[i])
             block(pos, vel, st)
         }
+    }
+
+    fun snapshot(): Array<AntSnapshot> {
+        val res = mutableListOf<AntSnapshot>()
+        forEach { pos, vel, state -> res.add(AntSnapshot(pos, vel, state)) }
+        return res.toTypedArray()
+    }
+
+    fun set(idx: Int, ant: AntSnapshot) {
+        val p = posBuff.asFloatBuffer()
+        val v = velBuff.asFloatBuffer()
+        p.put(2*idx, ant.pos.x)
+        p.put(2*idx+1, ant.pos.y)
+        v.put(2*idx, ant.vel.x)
+        v.put(2*idx+1, ant.vel.y)
+        stateBuff.put(idx, ant.state.value)
     }
 
 }

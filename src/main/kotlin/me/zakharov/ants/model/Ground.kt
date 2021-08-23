@@ -10,6 +10,7 @@ import me.zakharov.Matrix2d
 import me.zakharov.createByteMatrix2d
 import me.zakharov.share
 import me.zakharov.utils.IHeadlessActor
+import java.lang.RuntimeException
 
 //@ExportTo(opencl)
 // enum CellType { empty = 0, nest = 1, food = 2, obstacle = 3 } ;
@@ -84,4 +85,21 @@ class Ground(
     }
 
     fun getNestCoords(index: Int = 0) = report.getMedian()
+
+    fun debugString():String {
+        val sb = StringBuilder()
+        for( y in 0 until height ) {
+            for( x in 0 until width ) {
+                sb.append(when(m[x, y]) {
+                    GroundType.Nest.code -> 'N'
+                    GroundType.Empty.code -> ' '
+                    GroundType.Food.code -> '.'
+                    GroundType.Obstacle.code -> '#'
+                    else -> throw RuntimeException("unknown ground type")
+                })
+            }
+            sb.append('\n')
+        }
+        return sb.toString()
+    }
 }
