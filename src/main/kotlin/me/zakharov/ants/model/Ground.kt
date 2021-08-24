@@ -6,6 +6,7 @@ import com.badlogic.gdx.math.Vector2
 import me.apemanzilla.ktcl.CLCommandQueue
 import me.apemanzilla.ktcl.CLContext
 import me.apemanzilla.ktcl.cl10.KernelAccess
+import me.apemanzilla.ktcl.cl10.enqueueWriteBuffer
 import me.zakharov.Matrix2d
 import me.zakharov.createByteMatrix2d
 import me.zakharov.share
@@ -80,8 +81,12 @@ class Ground(
     }
 
     init {
-        shared.upload(cmd)
         paintOnMatrix(m)
+        cmd.enqueueWriteBuffer(shared.buff, shared.remoteBuff)
+    }
+
+    fun update() {
+        cmd.enqueueWriteBuffer(shared.buff, shared.remoteBuff)
     }
 
     fun getNestCoords(index: Int = 0) = report.getMedian()

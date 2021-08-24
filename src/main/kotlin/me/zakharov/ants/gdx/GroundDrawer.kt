@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.Batch
 import com.badlogic.gdx.graphics.glutils.ShaderProgram
 import com.badlogic.gdx.scenes.scene2d.Actor
+import me.apemanzilla.ktcl.cl10.enqueueWriteBuffer
 import me.apemanzilla.ktcl.toArray
 import me.zakharov.ants.model.GroundType
 import me.zakharov.ants.model.Ground
@@ -91,5 +92,6 @@ fun Ground.createFromTexture(groundTexture: Texture): Ground {
 
     groundTexture.textureData.disposePixmap()
     d(report)
+    update()
     return this
 }

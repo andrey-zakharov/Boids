@@ -72,7 +72,7 @@ class Ants(
     ).also {
         // WITH_FALLBACK_PATHFINDING=true
         val opts = mutableListOf("-DMAX_QUEUE_SIZE=$maxQueueSize -DMAX_LOOKUP_ANGLE=${conf.angleDegs}")
-        if ( debug ) opts.add("-DDEBUG")
+        if ( debug ) opts.also { it.add("-DDEBUG") }.also { it.add("-DDEBUG_PATHFIND") } // DEBUG_PATHF DEBUG_QUEUE
 
         it.build(opts.joinToString(" "))
         d("build ants with $opts")

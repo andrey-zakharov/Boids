@@ -11,6 +11,8 @@ import me.apemanzilla.ktcl.cl10.getPlatforms
 import me.zakharov.ants.model.*
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class AntsTest {
 
@@ -37,26 +39,43 @@ class AntsTest {
         pheromones.m[2, 0] = PherType.food_trail.v
         val ants = Ants(antsConfig3x3, ctx, cmd, ground, pheromones)
 
-
 //        ants.ejectAntsFromNest()
         // move forward
         ants.set(0, AntSnapshot(Vector2(1f, 0f), Vector2(1f, 0f), AntState.empty))
-
         val s = ants.snapshot()
         assertEquals(1, s.size)
         assertEquals(Vector2(1f, 0f), s[0].pos)
         println(s[0])
         println( ground.debugString() )
 
+        // simple step test
         ants.act(1f)
 
+        assertTrue( pheromones.m[1, 0] != PherType.none.v, "ant should leaves trail")
         val afs = ants.snapshot()
         assertEquals(Vector2(2f, 0f), afs[0].pos)
-        assertEquals(Vector2(1f, 0f), afs[0].vel)
+        assertEquals(Vector2(1f, 0f), afs[0].vel)// not true
 
-        //ants.act(1f)
+        pheromones.print()
 
         //val bfs = ants.snapshot()
         //println(bfs[0])
+    }
+
+    @Test fun obstacleTest() {
+        val ground = Ground(ctx, cmd, antsConfig3x3.width, antsConfig3x3.height) {
+            this[0, 0] = GroundType.Nest
+            this[1, 0] = GroundType.Obstacle
+        }
+        println( ground.debugString() )
+        val pheromones = Pheromones(ctx, cmd, antsConfig3x3.width, antsConfig3x3.height)
+        val ants = Ants(antsConfig3x3, ctx, cmd, ground, pheromones)
+        ants.set(0, AntSnapshot(Vector2(0f, 0f), Vector2(1f, 0f), AntState.empty))
+        ants.act(1f)
+
+        val ant = ants.snapshot()[0]
+        assertFalse { ant.pos == Vector2(1f, 0f) }
+        println(ant.pos)
+
     }
 }

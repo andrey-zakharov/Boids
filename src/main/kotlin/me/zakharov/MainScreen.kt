@@ -53,7 +53,7 @@ class MainScreen(
         ) )
     }
     private val pher by lazy { Pheromones(ctx, cmd, ground.width, ground.height) }
-    private val ants by lazy { Ants(AntsConfig(ground.width, ground.height,100), ctx, cmd, ground, pher).also {
+    private val ants by lazy { Ants(AntsConfig(ground.width, ground.height,100, 5f), ctx, cmd, ground, pher).also {
         it.ejectAntsFromNest()
     } }
     private val groundDrawer by lazy { GroundDrawer(ground) }

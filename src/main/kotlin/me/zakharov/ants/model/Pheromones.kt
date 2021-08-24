@@ -7,6 +7,8 @@ import me.apemanzilla.ktcl.cl10.*
 import me.zakharov.createFloatMatrix2d
 import me.zakharov.share
 import me.zakharov.utils.IHeadlessActor
+import java.io.OutputStream
+import java.io.PrintStream
 
 
 data class PheromonesConfig(
@@ -75,15 +77,36 @@ class Pheromones(
 
 
     fun print() {
-
-        m.forEach { x, y, v ->
-            if (x==0) println()
-            when(v) {
-                PherType.food_trail.v -> print("f")
-                PherType.trail.v -> print("t")
-                PherType.debug.v -> print("D")
-                PherType.none.v -> print(" ")
+        val buff = OutToStringBuilderStream()
+        val b = "+" + "=".repeat(width) + "+"
+        with(PrintStream(buff)) {
+            print(b)
+            m.forEach { x, y, v ->
+                if ( x == 0 ) {
+                    if ( y != 0 ) print("!")
+                    println()
+                    print("!")
+                }
+                print(when {
+                    v == 0f -> " "
+                    v < 0f -> "f" // PherType.food_trail.v
+                    v > 0f -> "." //PherType.trail.v
+                    v < -1f -> "D" // PherType.debug.v
+                    else -> throw RuntimeException(v.toString())
+                })
             }
+            println("!")
+            print(b)
         }
+        println(buff.toStr)
     }
+}
+
+class OutToStringBuilderStream : OutputStream() {
+    private val sb = StringBuilder()
+    override fun write(b: Int) {
+        sb.append(b.toChar())
+    }
+
+    val toStr get() = sb.toString()
 }

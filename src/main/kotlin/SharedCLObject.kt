@@ -52,7 +52,7 @@ abstract class Matrix2d<T>(val width: Int, val height: Int, val elementSize: Int
         buff.rewind()
         for(i in 0 until buff.capacity()) buff.put(i, 0)
     }
-    fun forEach(block: (x: Int, y: Int, v: T) -> Unit) {
+    inline fun forEach(block: (x: Int, y: Int, v: T) -> Unit) {
         for ( y in 0 until height ) {
             for (x in 0 until width) {
                 block(x, y, this[x, y])

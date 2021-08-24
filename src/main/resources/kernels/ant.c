@@ -38,7 +38,11 @@ bool check_valid(const float2 origin, const float2 vel, const float2 np) {
     }
 
     float dt = dot( normalize( vel ), normalize( np - origin ));
-    //printf("check_valid v=(%.3f, %.3f)\tnextlen=%f,\tmaxlen=%f, dot = %f\t>= min_dot=%f\t = %d\n", vel.x, vel.y, nextlen, maxlen, dt, min_dot, dt >= min_dot);
+#ifdef DEBUG_PATHFIND
+    printf(
+        "check_valid np=(%.1f, %.1f) v=(%.2f, %.2f)\tnextlen=%f,\tmaxlen=%f, dot = %f\t>= min_dot=%f\t = %d\n",
+        np.x, np.y, vel.x, vel.y, nextlen, maxlen, dt, min_dot, dt >= min_dot);
+#endif
 
 	if ( dt < min_dot ) return false;
     if ( nextlen > maxlen ) return false;
@@ -58,6 +62,9 @@ bool isequali(uint2 a, uint2 b) {
 }
 
 float2 bfs_visit_cell_ground(bool emp, float2 cell_vec, enum CellType ground) {
+#ifdef DEBUG
+    printf(" ground bfs visit %.1f, %.1f = %d\n", cell_vec.x, cell_vec.y, ground);
+#endif
     // accumulate all changes from found cell
     // real kernel is here TBD compose it
     float2 force = { 0., 0. };
@@ -131,6 +138,7 @@ void ant_kernel(
 
     int index = get_global_id(0);
     int _random_call = 0.;
+
     // adapter to be done
 #define pos coords[index]
 #define vel velocities[index]
@@ -139,6 +147,7 @@ void ant_kernel(
 
     //float2 pos = coords[index];
     //float2 vel = velocities[index];
+    float2 max_velocity = normalize(vel) * max_speed;
 #ifdef DEBUG
     printf(" = STEP pos=(%.3f, %.3f) vel=(%.3f, %.3f)\n", pos.x, pos.y, vel.x, vel.y);
 #endif
@@ -196,7 +205,6 @@ void ant_kernel(
         }
     }
 
-    pos = wrap_bounds(next_pos, w, h);
     queue cells;
     queue_init(&cells);
     queue_push(&cells, convert_uint2(pos));
@@ -214,7 +222,7 @@ void ant_kernel(
     /// BFS
     while(!queue_empty(&cells)) {
         uint2 cp = queue_pop(&cells);
-#ifdef DEBUG
+#ifdef DEBUG_PATHFIND
         printf(" = looking around cell %d, %d\n", cp.x, cp.y);
 #endif
         float2 fcp = convert_float2(cp) + (float2)0.5;
@@ -228,11 +236,12 @@ void ant_kernel(
             //set_cell_pheromone(&pheromones, fupp, debug);
             uint2 cell_to_add = convert_uint2(fupp);
 
-            if (check_valid(iorigin, max_speed, fupp) && !check_queued(&cells, cell_to_add)) {
+            if (check_valid(iorigin, max_velocity, fupp) && !check_queued(&cells, cell_to_add)) {
                 queue_push(&cells, cell_to_add);
             }
         }
-#ifdef DEBUG
+#ifdef DEBUG_PATHFIND
+        printf("After scan neighbours: ");
         queue_print(&cells);
 #endif
         if ( isequali(cp.x, origin.x) ) {
@@ -250,9 +259,10 @@ void ant_kernel(
         forces[res_index] += bfs_visit_cell_pheromones(emp, cell_vec, pher)
             * (float2)mix((float)0.5, (float)1.0, rand)
         ;
+    }
 
 #ifdef DEBUG
-        printf("Cell (%d, %d)\n", cp.x, cp.y);
+        printf("Applying forces on cell (%f, %f)\n", next_pos.x, next_pos.y);
         for( int i = 0; i < 3; i++ ) {
             float l = length(forces[i]);
             if ( l == 0. ) {
@@ -265,8 +275,6 @@ void ant_kernel(
                 forces[i].x, forces[i].y, length(forces[i]));
         }
 #endif
-    }
-
     vel += forces[0];  //ground
     if ( emp ) {
         if ( length(forces[2]) > 0 ) { //anger mode - only this phers accounts
@@ -291,7 +299,7 @@ void ant_kernel(
 #ifdef DEBUG
     for( size_t i = 0; i < cells.pos_tail; i++ ) {
         // debug
-        pheromonesArray[get_array_index(w, h, convert_float2(cells.queue[i]))] = food_trail;
+        //pheromonesArray[get_array_index(w, h, convert_float2(cells.queue[i]))] = food_trail;
     }
 #endif
 
@@ -313,6 +321,8 @@ void ant_kernel(
     }
 
     //velocities[index] = vel;
+
+    pos = wrap_bounds(next_pos, w, h);
     //pos = wrap_bounds(pos + normalize(vel)/* delta * 2*/, w, h);
     //}
     //state[index] = out_state;
