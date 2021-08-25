@@ -45,7 +45,7 @@ class MainScreen(
         setToOrtho(false, w.toFloat(), h.toFloat())
     }
 
-    private val ground by lazy { Ground(ctx, cmd, w/4, h/4).createFromTexture( Texture(
+    private val ground by lazy { Ground(ctx, cmd, w, h).createFromTexture( Texture(
 //        "tex/ground-2.png"
             "tex/ground-test.png"
 //        "tex/ground.png"
@@ -53,7 +53,9 @@ class MainScreen(
         ) )
     }
     private val pher by lazy { Pheromones(ctx, cmd, ground.width, ground.height) }
-    private val ants by lazy { Ants(AntsConfig(ground.width, ground.height,100, 5f), ctx, cmd, ground, pher).also {
+    private val ants by lazy { Ants(AntsConfig(
+        ground.width, ground.height,1000, 5f, 90f
+    ), ctx, cmd, ground, pher).also {
         it.ejectAntsFromNest()
     } }
     private val groundDrawer by lazy { GroundDrawer(ground) }

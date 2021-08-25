@@ -40,8 +40,8 @@ bool check_valid(const float2 origin, const float2 vel, const float2 np) {
     float dt = dot( normalize( vel ), normalize( np - origin ));
 #ifdef DEBUG_PATHFIND
     printf(
-        "check_valid np=(%.1f, %.1f) v=(%.2f, %.2f)\tnextlen=%f,\tmaxlen=%f, dot = %f\t>= min_dot=%f\t = %d\n",
-        np.x, np.y, vel.x, vel.y, nextlen, maxlen, dt, min_dot, dt >= min_dot);
+        "check_valid np=(%.1f, %.1f) v=(%.2f, %.2f)\tnextlen=%f,\tmaxlen=%f, dot = %f\t>= min_dot=%f\t = %d%d\n",
+        np.x, np.y, vel.x, vel.y, nextlen, maxlen, dt, min_dot, dt >= min_dot, nextlen <= maxlen);
 #endif
 
 	if ( dt < min_dot ) return false;
@@ -169,7 +169,7 @@ void ant_kernel(
                     pos = next_pos;
                     vel = -vel;
                     ant_state = full;
-                    //groundArray[get_array_index(w, h, next_pos)] = empty;
+                    groundArray[get_array_index(w, h, next_pos)] = empty;
                     // TBD event ant.TakeEvent
                     return;
                 } else {

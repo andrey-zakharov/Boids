@@ -82,7 +82,7 @@ class Ground(
 
     init {
         paintOnMatrix(m)
-        cmd.enqueueWriteBuffer(shared.buff, shared.remoteBuff)
+        update()
     }
 
     fun update() {

@@ -71,7 +71,7 @@ class Ants(
         this::class.java.getResource("/kernels/ant.c")!!.readText()
     ).also {
         // WITH_FALLBACK_PATHFINDING=true
-        val opts = mutableListOf("-DMAX_QUEUE_SIZE=$maxQueueSize -DMAX_LOOKUP_ANGLE=${conf.angleDegs}")
+        val opts = mutableListOf("-DMAX_QUEUE_SIZE=$maxQueueSize -DMAX_LOOKUP_ANGLE=${conf.angleDegs/2}")
         if ( debug ) opts.also { it.add("-DDEBUG") }.also { it.add("-DDEBUG_PATHFIND") } // DEBUG_PATHF DEBUG_QUEUE
 
         it.build(opts.joinToString(" "))
@@ -169,6 +169,7 @@ class Ants(
                 enqueueReadBuffer(from = stateCLBuff, to = stateBuff)
 // if ground does not change?
                 enqueueReadBuffer(from = pheromones.shared.remoteBuff, pheromones.shared.buff)
+                enqueueReadBuffer(from = ground.shared.remoteBuff, ground.shared.buff)
             }
 
             //debugScanning()

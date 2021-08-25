@@ -25,7 +25,7 @@ class AntsTest {
         width = 3,
         height = 3,
         totalCount = 1,
-        maxSpeed = 1f,
+        maxSpeed = 1.5f,
         angleDegs =  90f,
         debug = true
     )
@@ -54,7 +54,7 @@ class AntsTest {
         assertTrue( pheromones.m[1, 0] != PherType.none.v, "ant should leaves trail")
         val afs = ants.snapshot()
         assertEquals(Vector2(2f, 0f), afs[0].pos)
-        assertEquals(Vector2(1f, 0f), afs[0].vel)// not true
+        assertEquals(Vector2(antsConfig3x3.maxSpeed, 0f), afs[0].vel)// not true
 
         pheromones.print()
 
@@ -67,15 +67,35 @@ class AntsTest {
             this[0, 0] = GroundType.Nest
             this[1, 0] = GroundType.Obstacle
         }
-        println( ground.debugString() )
+
         val pheromones = Pheromones(ctx, cmd, antsConfig3x3.width, antsConfig3x3.height)
         val ants = Ants(antsConfig3x3, ctx, cmd, ground, pheromones)
         ants.set(0, AntSnapshot(Vector2(0f, 0f), Vector2(1f, 0f), AntState.empty))
         ants.act(1f)
+//        println( ground.debugString() )
 
         val ant = ants.snapshot()[0]
         assertFalse { ant.pos == Vector2(1f, 0f) }
-        println(ant.pos)
+//        println(ant)
 
+    }
+
+    @Test fun foodTakeTest() = with ( Ground(ctx, cmd, antsConfig3x3.width, antsConfig3x3.height) {
+        this[0, 0] = GroundType.Nest
+        this[1, 1] = GroundType.Food
+    }) ground@ {
+        with( Pheromones(ctx, cmd, antsConfig3x3.width, antsConfig3x3.height) ) phers@ {
+            with( Ants(antsConfig3x3, ctx, cmd, this@ground, this@phers)) {
+                set(0, AntSnapshot(Vector2(.5f, .5f), Vector2.Zero, AntState.empty))
+                act(1f) // to update vel
+                act( 1f ) // to get into point
+                val ant = snapshot()[0]
+                println( this@ground.debugString() )
+                this@phers.print()
+                println(ant)
+                assertEquals(AntState.full, ant.state)
+                assertEquals(GroundType.Empty.code, this@ground[1, 1])
+            }
+        }
     }
 }
