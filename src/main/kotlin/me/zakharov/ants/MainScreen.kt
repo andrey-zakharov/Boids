@@ -9,6 +9,7 @@ import com.badlogic.gdx.scenes.scene2d.Actor
 import com.badlogic.gdx.scenes.scene2d.InputEvent
 import com.badlogic.gdx.scenes.scene2d.InputListener
 import com.badlogic.gdx.scenes.scene2d.Stage
+import com.badlogic.gdx.scenes.scene2d.ui.CheckBox
 import com.badlogic.gdx.scenes.scene2d.ui.Label
 import com.badlogic.gdx.scenes.scene2d.ui.Slider
 import com.badlogic.gdx.scenes.scene2d.ui.VerticalGroup
@@ -46,7 +47,7 @@ class MainScreen(
         setToOrtho(false, w.toFloat(), h.toFloat())
     }
 
-    private val ground by lazy { Ground(ctx, cmd, 300, 200).createFromTexture( Texture(
+    private val ground by lazy { Ground(ctx, cmd, w / 5, h /5).createFromTexture( Texture(
 //        "tex/ground-2.png"
             "tex/ground-test.png"
 //        "tex/ground.png"
@@ -102,6 +103,14 @@ class MainScreen(
             }
         }
         addActor( VerticalGroup().run {
+            addActor(CheckBox("draw ants", game.uiSkin).also {
+                it.isChecked = antsDrawer.enabled
+                addListener(object: ChangeListener() {
+                    override fun changed(event: ChangeEvent?, actor: Actor?) {
+                        antsDrawer.enabled = it.isChecked
+                    }
+                })
+            })
             addActor( Slider( 0f, 7f, 1f, false, game.uiSkin ).run {
                 addListener(object: ChangeListener() {
                     override fun changed(event: ChangeEvent?, actor: Actor?) {
@@ -110,7 +119,7 @@ class MainScreen(
                 })
                 this
             })
-            addActor(Label("tested", game.uiSkin))
+
             addActor(Slider(-2f, 2f, 0.1f, false, game.uiSkin ).run {
                 value = log(groundDrawer.div, 10f)
                 addListener(object : ChangeListener() {

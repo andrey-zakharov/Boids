@@ -12,6 +12,7 @@ import me.zakharov.ants.model.rotatedDeg
 
 
 class AntsDrawer(private val model: Ants, private val font: BitmapFont = BitmapFont()) : Actor() {
+    var enabled = true // show or not
     private val tex = Texture("tex/carpenter-ant-small.png")
 
     override fun act(delta: Float) {
@@ -20,6 +21,7 @@ class AntsDrawer(private val model: Ants, private val font: BitmapFont = BitmapF
     }
     override fun draw(batch: Batch?, parentAlpha: Float) {
         super.draw(batch, parentAlpha)
+        if ( !enabled ) return;
         batch?.let {
             val scaleStageX = stage.width / model.width.toFloat()
             val scaleStageY = stage.height / model.height.toFloat()

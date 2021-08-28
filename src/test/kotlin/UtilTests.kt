@@ -1,4 +1,4 @@
-import me.zakharov.ants.model.modE
+import me.zakharov.utils.modE
 import org.junit.Test
 import kotlin.test.assertEquals
 

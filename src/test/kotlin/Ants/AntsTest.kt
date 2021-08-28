@@ -112,6 +112,8 @@ class AntsTest {
         this[-1, -1] = GroundType.Obstacle
         update(true)
         println(this.debugString())
+        assertEquals(GroundType.Food.code, this[3, 3])
+        assertEquals(GroundType.Obstacle.code, this[4, 4])
 
         with ( Ants(antsConfig5x5, ctx, cmd, this) ) {
             set(0, AntSnapshot(Vector2.Zero, Vector2.Zero, AntState.empty))
