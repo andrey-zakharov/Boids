@@ -37,7 +37,10 @@ dependencies {
     implementation("org.lwjgl", "lwjgl-opencl")
     implementation("org.lwjgl", "lwjgl-opengl")
     implementation("org.lwjgl", "lwjgl-stb")
+
     implementation("io.github.libktx", "ktx-app", ktxVersion)
+    implementation("io.github.libktx", "ktx-async", ktxVersion)
+
     implementation("com.badlogicgames.gdx", "gdx", gdxVersion)
     implementation("com.badlogicgames.gdx", "gdx-backend-lwjgl3", gdxVersion)
     api("com.badlogicgames.gdx","gdx-platform", gdxVersion, classifier = "natives-desktop")

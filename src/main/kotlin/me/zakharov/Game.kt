@@ -15,6 +15,7 @@ import com.badlogic.gdx.utils.viewport.ScalingViewport
 import ktx.app.KtxGame
 import ktx.app.KtxInputAdapter
 import ktx.app.KtxScreen
+import ktx.async.KtxAsync
 import me.apemanzilla.ktcl.CLDevice
 import me.apemanzilla.ktcl.CLException
 import me.apemanzilla.ktcl.cl10.*
@@ -25,6 +26,7 @@ import me.zakharov.ants.model.Ground
 import me.zakharov.ants.model.GroundType
 import me.zakharov.me.zakharov.IGameModel
 import me.zakharov.me.zakharov.PrimaryGameModel
+import me.zakharov.me.zakharov.ants.MainScreen
 import me.zakharov.me.zakharov.ants.gdx.GroundDrawer
 import me.zakharov.utils.SimpleGameScreen
 
@@ -95,6 +97,7 @@ class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
         //Gdx.graphics.setForegroundFPS(0)
         Gdx.graphics.setVSync(false)
         Gdx.input.inputProcessor = inputBus
+        KtxAsync.initiate()
         val durMs = kotlin.system.measureTimeMillis {
             addScreen(screen1)
             addScreen(SimpleGameScreen::class.java, screen2)

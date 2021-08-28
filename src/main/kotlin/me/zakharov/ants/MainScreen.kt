@@ -1,4 +1,4 @@
-package me.zakharov
+package me.zakharov.me.zakharov.ants
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
@@ -18,6 +18,7 @@ import kotlinx.coroutines.*
 import ktx.app.KtxScreen
 import me.apemanzilla.ktcl.CLCommandQueue
 import me.apemanzilla.ktcl.CLContext
+import me.zakharov.Game
 import me.zakharov.ants.gdx.AntsDrawer
 import me.zakharov.ants.gdx.PheromonesDrawer
 import me.zakharov.ants.model.Ants
@@ -33,24 +34,26 @@ import kotlin.math.pow
 import kotlin.random.Random
 
 class MainScreen(
-        val game: Game,
-        val ctx: CLContext,
-        val cmd: CLCommandQueue,
-        val input: InputMultiplexer? = Gdx.input.inputProcessor as? InputMultiplexer,
+    val game: Game,
+    val ctx: CLContext,
+    val cmd: CLCommandQueue,
+    val input: InputMultiplexer? = Gdx.input.inputProcessor as? InputMultiplexer,
 
-): KtxScreen {
+    ): KtxScreen {
     private val w = Gdx.app.graphics.width
     private val h = Gdx.app.graphics.height
     private val camera = OrthographicCamera().apply {
         setToOrtho(false, w.toFloat(), h.toFloat())
     }
 
-    private val ground by lazy { Ground(ctx, cmd, w, h).createFromTexture( Texture(
+    private val ground by lazy { Ground(ctx, cmd, 300, 200).createFromTexture( Texture(
 //        "tex/ground-2.png"
             "tex/ground-test.png"
 //        "tex/ground.png"
 //        "tex/pic.png"
-        ) )
+        ) ).also {
+            println(it.debugString())
+        }
     }
     private val pher by lazy { Pheromones(ctx, cmd, ground.width, ground.height) }
     private val ants by lazy { Ants(AntsConfig(
@@ -63,11 +66,17 @@ class MainScreen(
     private val pherDrawer by lazy { PheromonesDrawer(pher) }
     private var pause = false
     private var oneStep = false
+    private var zoomFactor = 1f
 
     private val scene = Stage(FitViewport(w.toFloat(), h.toFloat(), camera), game.batch).apply {
         println("Creating scene")
         //stage
         addListener( object: InputListener() {
+            override fun scrolled(event: InputEvent?, x: Float, y: Float, amountX: Float, amountY: Float): Boolean {
+                zoomFactor += amountX / 10f;
+                //this@apply.viewport.camera.
+                return true
+            }
             override fun keyUp(event: InputEvent?, keycode: Int): Boolean {
                 when(keycode) {
                     Input.Keys.SPACE -> pause = !pause

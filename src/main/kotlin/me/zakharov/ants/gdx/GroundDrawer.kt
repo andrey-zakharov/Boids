@@ -7,18 +7,21 @@ import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.Batch
 import com.badlogic.gdx.graphics.glutils.ShaderProgram
 import com.badlogic.gdx.scenes.scene2d.Actor
-import me.apemanzilla.ktcl.cl10.enqueueWriteBuffer
-import me.apemanzilla.ktcl.toArray
-import me.zakharov.ants.model.GroundType
+import kotlinx.coroutines.channels.broadcast
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.launch
 import me.zakharov.ants.model.Ground
+import me.zakharov.ants.model.GroundType
 import me.zakharov.d
 import me.zakharov.utils.WrappedByteTextureData
-import me.zakharov.utils.WrappedFloatTextureData
-import me.zakharov.utils.print
 import me.zakharov.utils.safeSetUniform
+import ktx.async.KtxAsync
+import ktx.async.RenderingScope
 
 class GroundDrawer(private val model: Ground) : Actor() {
 
+    private val scope by lazy { RenderingScope() }
     var div = 1f // uniform
         set(v) {
             shaderProgram.bind()
@@ -32,10 +35,20 @@ class GroundDrawer(private val model: Ground) : Actor() {
             shaderProgram.safeSetUniform("nbyte", nbyte)
             field = v
         }
+
+    var drawGround = true
     private val wrappedTexData by lazy { WrappedByteTextureData(model.width, model.height, model.shared.buff) }
     private val glTex by lazy { Texture(wrappedTexData).apply {
         setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest)
         load(wrappedTexData)
+        scope.launch {
+            model.onRefresh.debounce(1).collect {
+
+                println(model.debugString())
+                load(wrappedTexData)
+
+            }
+        }
     } }
 
     private val shaderProgram = ShaderProgram(

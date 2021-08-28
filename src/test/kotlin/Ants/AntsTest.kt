@@ -27,11 +27,20 @@ class AntsTest {
         totalCount = 1,
         maxSpeed = 1.5f,
         angleDegs =  90f,
-        debug = true
+        //clopts = arrayOf("DEBUG", "DEBUG_PATHFIND", "DEBUG_QUEUE")
     )
 
-    @Test fun singleAntScanning() {
 
+    private val antsConfig5x5 = AntsConfig(
+        width = 5,
+        height = 5,
+        totalCount = 1,
+        maxSpeed = 1.5f,
+        angleDegs =  90f,
+        //clopts = arrayOf("DEBUG", /*"DEBUG_PATHFIND", "DEBUG_QUEUE"*/)
+    )
+
+    @Test fun `velocity changes on food trail`() {
         val ground = Ground(ctx, cmd, 3, 3) {
             this[0, 0] = GroundType.Nest
         }
@@ -45,8 +54,6 @@ class AntsTest {
         val s = ants.snapshot()
         assertEquals(1, s.size)
         assertEquals(Vector2(1f, 0f), s[0].pos)
-        println(s[0])
-        println( ground.debugString() )
 
         // simple step test
         ants.act(1f)
@@ -56,46 +63,68 @@ class AntsTest {
         assertEquals(Vector2(2f, 0f), afs[0].pos)
         assertEquals(Vector2(antsConfig3x3.maxSpeed, 0f), afs[0].vel)// not true
 
-        pheromones.print()
 
         //val bfs = ants.snapshot()
         //println(bfs[0])
     }
 
-    @Test fun obstacleTest() {
+    @Test fun `ant should avoid obstacles`() {
+        println(" == obstacleTest == ")
         val ground = Ground(ctx, cmd, antsConfig3x3.width, antsConfig3x3.height) {
             this[0, 0] = GroundType.Nest
             this[1, 0] = GroundType.Obstacle
         }
 
-        val pheromones = Pheromones(ctx, cmd, antsConfig3x3.width, antsConfig3x3.height)
-        val ants = Ants(antsConfig3x3, ctx, cmd, ground, pheromones)
+        val ants = Ants(antsConfig3x3, ctx, cmd, ground)
         ants.set(0, AntSnapshot(Vector2(0f, 0f), Vector2(1f, 0f), AntState.empty))
         ants.act(1f)
-//        println( ground.debugString() )
+        println( ground.debugString() )
 
         val ant = ants.snapshot()[0]
+               println(ant)
         assertFalse { ant.pos == Vector2(1f, 0f) }
-//        println(ant)
+
 
     }
 
-    @Test fun foodTakeTest() = with ( Ground(ctx, cmd, antsConfig3x3.width, antsConfig3x3.height) {
+    @Test fun `ant should take food`() = with ( Ground(ctx, cmd, antsConfig3x3.width, antsConfig3x3.height) {
         this[0, 0] = GroundType.Nest
         this[1, 1] = GroundType.Food
     }) ground@ {
-        with( Pheromones(ctx, cmd, antsConfig3x3.width, antsConfig3x3.height) ) phers@ {
-            with( Ants(antsConfig3x3, ctx, cmd, this@ground, this@phers)) {
-                set(0, AntSnapshot(Vector2(.5f, .5f), Vector2.Zero, AntState.empty))
-                act(1f) // to update vel
-                act( 1f ) // to get into point
-                val ant = snapshot()[0]
-                println( this@ground.debugString() )
-                this@phers.print()
-                println(ant)
-                assertEquals(AntState.full, ant.state)
-                assertEquals(GroundType.Empty.code, this@ground[1, 1])
-            }
+        with( Ants(antsConfig3x3, ctx, cmd, this@ground)) {
+            set(0, AntSnapshot(Vector2(.5f, .5f), Vector2.Zero, AntState.empty))
+            act(1f) // to update vel
+            println(snapshot()[0])
+            act( 1f ) // to get into point
+            val ant = snapshot()[0]
+            println( this@ground.debugString() )
+            println(snapshot()[0])
+            assertEquals(AntState.full, ant.state)
+            assertEquals(GroundType.Empty.code, this@ground[1, 1])
+        }
+
+    }
+
+    @Test fun `ant should find path around obtacle and take food behind obstacle`() = with (
+        Ground(ctx, cmd, antsConfig5x5.width, antsConfig5x5.height) ) {
+        this[0, 0] = GroundType.Nest
+        this[-2, -2] = GroundType.Food
+        this[-1, -1] = GroundType.Obstacle
+        update(true)
+        println(this.debugString())
+
+        with ( Ants(antsConfig5x5, ctx, cmd, this) ) {
+            set(0, AntSnapshot(Vector2.Zero, Vector2.Zero, AntState.empty))
+            act(1f)
+            act(1f)
+            act(1f)
+            act(1f)
+            act(1f)
+            act(1f)
+            assertEquals(AntState.full, snapshot()[0].state)
+            println(snapshot().joinToString(", "))
+
         }
     }
 }
+

@@ -31,6 +31,7 @@ bool check_valid(const float2 origin, const float2 vel, const float2 np) {
     float min_dot = cos(radians(MAX_LOOKUP_ANGLE));
     const float nextlen = length( np - origin );
     float maxlen = length(vel);
+
     // special case when velocity is zero
     if ( maxlen == 0.0 ) {
         min_dot = -M_PI;
@@ -38,15 +39,14 @@ bool check_valid(const float2 origin, const float2 vel, const float2 np) {
     }
 
     float dt = dot( normalize( vel ), normalize( np - origin ));
+    bool valid = dt >= min_dot && nextlen <= maxlen;
 #ifdef DEBUG_PATHFIND
     printf(
-        "check_valid np=(%.1f, %.1f) v=(%.2f, %.2f)\tnextlen=%f,\tmaxlen=%f, dot = %f\t>= min_dot=%f\t = %d%d\n",
-        np.x, np.y, vel.x, vel.y, nextlen, maxlen, dt, min_dot, dt >= min_dot, nextlen <= maxlen);
+        "valid: %d np=(%.1f, %.1f) v=(%.2f, %.2f)\tnextlen=%f,\tmaxlen=%f, dot = %f\t>= min_dot=%f\t = %d%d\n",
+        valid, np.x, np.y, vel.x, vel.y, nextlen, maxlen, dt, min_dot, dt >= min_dot, nextlen <= maxlen);
 #endif
 
-	if ( dt < min_dot ) return false;
-    if ( nextlen > maxlen ) return false;
-    return true;
+    return valid;
 }
 
 int get_array_index(uint w, uint h, float2 cell) {
@@ -57,10 +57,11 @@ int get_array_index(uint w, uint h, float2 cell) {
 bool samecell(float2 a, float2 b) {
     return (int)a.x == (int)b.x && (int)a.y == (int)b.y;
 }
-bool isequali(uint2 a, uint2 b) {
+bool isequali(int2 a, int2 b) {
     return a.x == b.x && a.y == b.y;
 }
 
+// get force according to ground cell
 float2 bfs_visit_cell_ground(bool emp, float2 cell_vec, enum CellType ground) {
 #ifdef DEBUG
     printf(" ground bfs visit %.1f, %.1f = %d\n", cell_vec.x, cell_vec.y, ground);
@@ -96,6 +97,7 @@ float2 bfs_visit_cell_ground(bool emp, float2 cell_vec, enum CellType ground) {
     return force;
 }
 
+// // get force according to pher cell
 float2 bfs_visit_cell_pheromones(bool emp, float2 cell_vec, float ph) {
     float2 f = { 0., 0. };
     if ( ph == none ) return f;
@@ -117,6 +119,53 @@ float2 bfs_visit_cell_pheromones(bool emp, float2 cell_vec, float ph) {
     }
 
     return f;
+}
+
+//int2 get_cell(float2 pos) {
+//    int x, y;
+//    if (pos.x < 0) x = convert_int2_rtn(pos.x);
+//    else x = convert_int_rtp(pos.x);
+//}
+
+typedef struct {
+    // global
+    uint w;
+    uint h;
+    __global uchar*     ground;
+    __global float*     pheromones;
+    // ant
+    bool emp;
+    float2 raw_pos;
+    float2 cell_mid;// center pos
+    uint2 cell;
+
+    /// forces from ground
+    /// pher #1
+    /// pher #2
+    float2 forces[3];// = { { 0., 0. }, { 0., 0. }, { 0., 0. } };
+} ForceAccum;
+
+void accum_init(ForceAccum* a) {
+    a->forces[0] = (float2)0.;//{ 0., 0. }, { 0., 0. }, { 0., 0. } };
+    a->forces[1] = (float2)0.;//{ 0., 0. }, { 0., 0. }, { 0., 0. } };
+    a->forces[2] = (float2)0.;//{ 0., 0. }, { 0., 0. }, { 0., 0. } };
+    a->cell = convert_uint2(a->raw_pos);
+    a->cell_mid = convert_float2(a->cell) + (float2)0.5; //  center of current cell
+}
+
+void accum_visit(ForceAccum* a, float2 cell_vec) {
+    float2 target = a->cell_mid + cell_vec;
+    a->forces[0] += bfs_visit_cell_ground(a->emp, cell_vec, a->ground[get_array_index(a->w, a->h, target)]);
+
+    float pher = a->pheromones[get_array_index(a->w, a->h, target)];
+    int res_index = 2; // forceFromFoodPheromon
+
+    if (pher > 0) {
+        res_index = 1; // forceFromPheromon
+    }
+    a->forces[res_index] += bfs_visit_cell_pheromones(a->emp, cell_vec, pher)
+        //* (float2)mix((float)0.5, (float)1.0, rand)
+    ;
 }
 
 __kernel
@@ -207,26 +256,29 @@ void ant_kernel(
 
     queue cells;
     queue_init(&cells);
-    queue_push(&cells, convert_uint2(pos));
-    uint2 origin = cells.queue[0];
-    // and center of current cell
-    float2 iorigin = convert_float2(origin) + (float2)0.5;
-//    size_t obstacles_found = 0;
+    queue_push(&cells, convert_int2_rtn(pos));
 
-    /// forces from ground
-    /// pher #1
-    /// pher #2
-    float2 forces[3] = { { 0., 0. }, { 0., 0. }, { 0., 0. } };
+    ForceAccum accum;// = { w, h, groundArray, pheromonesArray, ant_state == empty, pos, iorigin, origin };
+    accum.w = w;
+    accum.h = h;
+    accum.ground = groundArray;
+    accum.pheromones = pheromonesArray;
+    accum.emp = emp;
+    accum.raw_pos = pos;
+    accum_init(&accum);
+
     //0 - forceFromGround
+    //accum_visit(&accum, accum.cell_mid - pos);
+    //forces[0] += bfs_visit_cell_ground(emp, iorigin - pos, groundArray[get_array_index(w, h, iorigin)]);
 
     /// BFS
     while(!queue_empty(&cells)) {
-        uint2 cp = queue_pop(&cells);
+        int2 cp = queue_pop(&cells);
 #ifdef DEBUG_PATHFIND
         printf(" = looking around cell %d, %d\n", cp.x, cp.y);
 #endif
         float2 fcp = convert_float2(cp) + (float2)0.5;
-        float2 cell_vec = fcp - iorigin;
+        float2 cell_vec = fcp - accum.cell_mid;
 
         /// get_valid_cells
         // neighbours
@@ -234,37 +286,24 @@ void ant_kernel(
         	float2 fupp = fcp + d[i];
 
             //set_cell_pheromone(&pheromones, fupp, debug);
-            uint2 cell_to_add = convert_uint2(fupp);
+            int2 cell_to_add = convert_int2_rtn(fupp);
 
-            if (check_valid(iorigin, max_velocity, fupp) && !check_queued(&cells, cell_to_add)) {
+            if (check_valid(accum.cell_mid, max_velocity, fupp) && !check_queued(&cells, cell_to_add)) {
                 queue_push(&cells, cell_to_add);
             }
         }
+
 #ifdef DEBUG_PATHFIND
         printf("After scan neighbours: ");
         queue_print(&cells);
 #endif
-        if ( isequali(cp.x, origin.x) ) {
-            continue;
-        }
-
-        forces[0] += bfs_visit_cell_ground(emp, cell_vec, groundArray[get_array_index(w, h, fcp)]);
-
-        float pher = pheromonesArray[get_array_index(w, h, fcp)];
-        int res_index = 2; // forceFromFoodPheromon
-
-        if (pher > 0) {
-            res_index = 1; // forceFromPheromon
-        }
-        forces[res_index] += bfs_visit_cell_pheromones(emp, cell_vec, pher)
-            * (float2)mix((float)0.5, (float)1.0, rand)
-        ;
+        accum_visit(&accum, cell_vec);
     }
 
 #ifdef DEBUG
         printf("Applying forces on cell (%f, %f)\n", next_pos.x, next_pos.y);
         for( int i = 0; i < 3; i++ ) {
-            float l = length(forces[i]);
+            float l = length(accum.forces[i]);
             if ( l == 0. ) {
                 continue;
             }
@@ -272,21 +311,21 @@ void ant_kernel(
             printf("  forces[%d]: Vector(%0.5f,\t%0.5f\t).mod=%0.5f\n",
                 //i == 0 ? "ground" : (i == 1 ? "pher" : "pherfood"),
                 i,
-                forces[i].x, forces[i].y, length(forces[i]));
+                accum.forces[i].x, accum.forces[i].y, length(accum.forces[i]));
         }
 #endif
-    vel += forces[0];  //ground
+    vel += accum.forces[0];  //ground
     if ( emp ) {
-        if ( length(forces[2]) > 0 ) { //anger mode - only this phers accounts
-            vel += forces[2] ;//*(float2)(2.)  / obstacles_found;
+        if ( length(accum.forces[2]) > 0 ) { //anger mode - only this phers accounts
+            vel += accum.forces[2] ;//*(float2)(2.)  / obstacles_found;
         } else {
-            vel += forces[1] / (float2)5.; // trails
+            vel += accum.forces[1] / (float2)5.; // trails
         }
     } else {
-        if ( length(forces[1]) > 0 ) {
-            vel += forces[1];
+        if ( length(accum.forces[1]) > 0 ) {
+            vel += accum.forces[1];
         } else {
-            vel += forces[2] / (float2)2.;
+            vel += accum.forces[2] / (float2)2.;
         }
     }
 

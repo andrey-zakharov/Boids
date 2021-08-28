@@ -40,7 +40,8 @@ data class AntsConfig(
     val totalCount: Int = 200,
     val maxSpeed: Float = 20.0f, ///< per second
     val angleDegs: Float = 40f, ///< angle of detection for ant in degrees
-    val debug: Boolean = false
+    val debug: Boolean = false,
+    val clopts: Array<String> = arrayOf() // aditional params to CL build
 )
 
 class Ants(
@@ -48,7 +49,7 @@ class Ants(
     private val ctx: CLContext,
     private val cmd: CLCommandQueue,
     private val ground: Ground,
-    private val pheromones: Pheromones = Pheromones(ctx, cmd, conf.width, conf.height),
+    val pheromones: Pheromones = Pheromones(ctx, cmd, conf.width, conf.height),
 ) : IHeadlessActor {
     var debug = conf.debug
 
@@ -62,7 +63,8 @@ class Ants(
 
     private val random = Random(Calendar.getInstance().timeInMillis)
     @ExperimentalUnsignedTypes
-    private val maxQueueSize = ceil(PI * conf.maxSpeed * conf.maxSpeed * conf.angleDegs / 360f).toUInt().coerceAtLeast(8u)
+    private val maxQueueSize =
+        ceil(PI * conf.maxSpeed * conf.maxSpeed * conf.angleDegs / 360f).toUInt().coerceAtLeast(9u)
 
     @ExperimentalUnsignedTypes
     private val prog = ctx.createProgramWithSource(
@@ -71,10 +73,15 @@ class Ants(
         this::class.java.getResource("/kernels/ant.c")!!.readText()
     ).also {
         // WITH_FALLBACK_PATHFINDING=true
-        val opts = mutableListOf("-DMAX_QUEUE_SIZE=$maxQueueSize -DMAX_LOOKUP_ANGLE=${conf.angleDegs/2}")
-        if ( debug ) opts.also { it.add("-DDEBUG") }.also { it.add("-DDEBUG_PATHFIND") } // DEBUG_PATHF DEBUG_QUEUE
+        val opts = mutableListOf("MAX_QUEUE_SIZE=$maxQueueSize", "MAX_LOOKUP_ANGLE=${conf.angleDegs/2}")
+        if ( debug ) {
+            opts.add("DEBUG")
+            opts.add("DEBUG_PATHFIND")
+        }
 
-        it.build(opts.joinToString(" "))
+        opts.addAll(conf.clopts)
+
+        it.build(opts.map { "-D$it" }.joinToString(" "))
         d("build ants with $opts")
     }
     private val kernel = prog.createKernel("ant_kernel").also {
@@ -171,6 +178,7 @@ class Ants(
                 enqueueReadBuffer(from = pheromones.shared.remoteBuff, pheromones.shared.buff)
                 enqueueReadBuffer(from = ground.shared.remoteBuff, ground.shared.buff)
             }
+
 
             //debugScanning()
             //debugObstacles()

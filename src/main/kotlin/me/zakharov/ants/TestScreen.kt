@@ -1,7 +1,6 @@
-package me.zakharov.me.zakharov
+package me.zakharov.me.zakharov.ants
 
 import com.badlogic.gdx.Gdx
-import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
@@ -18,8 +17,6 @@ import me.zakharov.events.PauseEvent
 import me.zakharov.me.zakharov.ants.gdx.GroundDrawer
 import me.zakharov.me.zakharov.ants.gdx.createFromTexture
 import me.zakharov.utils.SimpleGameScreen
-import java.util.*
-import kotlin.random.Random
 
 class TestScreen(
         val game: Game,
@@ -33,7 +30,7 @@ class TestScreen(
         setToOrtho(false, w.toFloat(), h.toFloat())
     }
 
-    private val ground by lazy { Ground(ctx, cmd, 80, 80).createFromTexture(Texture("tex/ground-2.png")) }
+    private val ground by lazy { Ground(ctx, cmd, 300, 200).createFromTexture(Texture("tex/ground-2.png")) }
     private val ants by lazy { Ants(AntsConfig(ground.width, ground.height), ctx, cmd, ground) }
     private val groundDrawer by lazy { GroundDrawer(ground) }
     private val antsDrawer by lazy { AntsDrawer(ants, game.font ) }
