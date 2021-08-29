@@ -10,7 +10,6 @@ import com.badlogic.gdx.scenes.scene2d.InputEvent
 import com.badlogic.gdx.scenes.scene2d.InputListener
 import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.scenes.scene2d.ui.CheckBox
-import com.badlogic.gdx.scenes.scene2d.ui.Label
 import com.badlogic.gdx.scenes.scene2d.ui.Slider
 import com.badlogic.gdx.scenes.scene2d.ui.VerticalGroup
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener
@@ -29,6 +28,7 @@ import me.zakharov.ants.model.Pheromones
 import me.zakharov.events.PauseEvent
 import me.zakharov.me.zakharov.ants.gdx.GroundDrawer
 import me.zakharov.me.zakharov.ants.gdx.createFromTexture
+import me.zakharov.utils.modE
 import java.util.*
 import kotlin.math.log
 import kotlin.math.pow
@@ -41,27 +41,41 @@ class MainScreen(
     val input: InputMultiplexer? = Gdx.input.inputProcessor as? InputMultiplexer,
 
     ): KtxScreen {
-    private val w = Gdx.app.graphics.width
-    private val h = Gdx.app.graphics.height
-    private val camera = OrthographicCamera().apply {
-        setToOrtho(false, w.toFloat(), h.toFloat())
-    }
+    private val screenWidth = Gdx.app.graphics.width
+    private val screenHeight = Gdx.app.graphics.height
 
-    private val ground by lazy { Ground(ctx, cmd, w / 5, h /5).createFromTexture( Texture(
-//        "tex/ground-2.png"
-            "tex/ground-test.png"
-//        "tex/ground.png"
-//        "tex/pic.png"
-        ) ).also {
-            println(it.debugString())
+    private val hudCamera by lazy { OrthographicCamera().apply {
+        setToOrtho(false, screenWidth.toFloat(), screenHeight.toFloat())
+    }}
+
+    private val testGrounds = arrayOf(
+        "tex/ground-test.png",
+        "tex/ground.png",
+        "tex/ground-2.png",
+        "tex/pic.png"
+    )
+    private var currentTex = 0
+
+    // model
+    private val worldWidth = 1024f
+    private val worldHeight = 1024f
+    private val ground by lazy { Ground(ctx, cmd, worldWidth.toInt(), worldHeight.toInt())
+        .createFromTexture( Texture(testGrounds[currentTex]) ).also {
+            //println(it.debugString())
         }
     }
     private val pher by lazy { Pheromones(ctx, cmd, ground.width, ground.height) }
     private val ants by lazy { Ants(AntsConfig(
-        ground.width, ground.height,1000, 5f, 90f
+        ground.width, ground.height,1000, 9f, 90f
     ), ctx, cmd, ground, pher).also {
         it.ejectAntsFromNest()
     } }
+
+
+    // view
+    private val camera by lazy { OrthographicCamera(screenWidth.toFloat(), screenHeight.toFloat()).apply {
+        setToOrtho(true, ground.width.toFloat(), ground.height.toFloat())
+    }}
     private val groundDrawer by lazy { GroundDrawer(ground) }
     private val antsDrawer by lazy { AntsDrawer(ants, game.font) }
     private val pherDrawer by lazy { PheromonesDrawer(pher) }
@@ -69,7 +83,7 @@ class MainScreen(
     private var oneStep = false
     private var zoomFactor = 1f
 
-    private val scene = Stage(FitViewport(w.toFloat(), h.toFloat(), camera), game.batch).apply {
+    private val scene = Stage(FitViewport(camera.viewportWidth, camera.viewportHeight, camera), game.batch).apply {
         println("Creating scene")
         //stage
         addListener( object: InputListener() {
@@ -85,6 +99,18 @@ class MainScreen(
                     Input.Keys.R -> pher.reset()
                     Input.Keys.P -> pher.print()
                     Input.Keys.D -> { this@apply.isDebugAll = !this@apply.isDebugAll }
+                    Input.Keys.LEFT -> {
+                        currentTex -= 1
+                        currentTex = currentTex.modE(testGrounds.size)
+                        ground.createFromTexture(Texture(testGrounds[currentTex]))
+                        pher.reset()
+                    }
+                    Input.Keys.RIGHT -> {
+                        currentTex += 1
+                        currentTex = currentTex.modE(testGrounds.size)
+                        ground.createFromTexture(Texture(testGrounds[currentTex]))
+                        pher.reset()
+                    }
                     else -> return false
                 }
                 return true
@@ -102,6 +128,10 @@ class MainScreen(
                 else -> false
             }
         }
+
+    }
+
+    private val hudUI = Stage(FitViewport(hudCamera.viewportWidth, hudCamera.viewportHeight, hudCamera), game.batch).apply {
         addActor( VerticalGroup().run {
             addActor(CheckBox("draw ants", game.uiSkin).also {
                 it.isChecked = antsDrawer.enabled
@@ -133,21 +163,27 @@ class MainScreen(
             this
         })
     }
-
     val random = Random(Calendar.getInstance().timeInMillis)
 
     override fun show() {
         input?.apply {
             addProcessor(scene)
+            addProcessor(hudUI)
         }
     }
 
     override fun hide() {
         input?.apply {
             removeProcessor(scene)
+            removeProcessor(hudUI)
         }
     }
 
+    override fun resize(width: Int, height: Int) {
+        super.resize(width, height)
+        scene.viewport.update(width, height)
+        hudUI.viewport.update(width, height)
+    }
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     /* works slower
@@ -168,8 +204,10 @@ class MainScreen(
     }*/
 
     override fun render(delta: Float) {
-        //camera.update()
-        //game.batch.projectionMatrix = camera.combined
+        camera.update()
+        game.batch.projectionMatrix = camera.combined
+        scene.viewport.apply()
+
 
         if ( !pause || oneStep) {
             if ( oneStep ) {
@@ -180,13 +218,23 @@ class MainScreen(
             oneStep = false
         }
 
+
+        camera.update()
+        scene.batch.projectionMatrix = camera.combined
+        scene.viewport.apply()
         scene.draw()
 
         scene.batch.begin()
-        game.font.draw(scene.batch, "fps: ${Gdx.graphics.framesPerSecond}", 0f, h-20f)
-        game.font.draw(scene.batch, "debug: ${scene.isDebugAll}", 0f, h-35f)
-        game.font.draw(scene.batch, "div: ${groundDrawer.div}", 0f, h-50f)
+        game.font.draw(scene.batch, "fps: ${Gdx.graphics.framesPerSecond}", 0f, 20f)
+        game.font.draw(scene.batch, "debug: ${scene.isDebugAll}", 0f, 35f)
+        game.font.draw(scene.batch, "div: ${groundDrawer.div}", 0f, 50f)
         scene.batch.end()
+
+        hudCamera.update()
+        hudUI.batch.projectionMatrix = hudCamera.combined
+        hudUI.viewport.apply(true)
+        hudUI.act()
+        hudUI.draw()
         //game.batch.end()
 
 //        if (Gdx.input.isTouched) {

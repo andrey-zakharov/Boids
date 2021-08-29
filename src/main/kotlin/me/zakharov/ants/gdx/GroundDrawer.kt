@@ -7,9 +7,6 @@ import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.Batch
 import com.badlogic.gdx.graphics.glutils.ShaderProgram
 import com.badlogic.gdx.scenes.scene2d.Actor
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.launch
 import ktx.async.RenderingScope
 import me.zakharov.ants.model.Ground
 import me.zakharov.ants.model.GroundType

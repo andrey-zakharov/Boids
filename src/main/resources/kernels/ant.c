@@ -72,7 +72,6 @@ float2 bfs_visit_cell_ground(bool emp, float2 cell_vec, enum CellType ground) {
     switch(ground) {
         case empty: return force;
         case nest:
-            force = -cell_vec;
             if ( !emp ) {
                 force = -force;
                 //printf("nest %f, %f\n", force.x, force.y);
@@ -80,8 +79,7 @@ float2 bfs_visit_cell_ground(bool emp, float2 cell_vec, enum CellType ground) {
             break;
 
         case food:
-            force = cell_vec;
-            if ( !emp ) force = -force;
+            if ( emp ) force = cell_vec;
             break;
         case obstacle:
             force = -cell_vec;
@@ -137,7 +135,7 @@ typedef struct {
     bool emp;
     float2 raw_pos;
     float2 cell_mid;// center pos
-    uint2 cell;
+    int2 cell;
 
     /// forces from ground
     /// pher #1
@@ -149,7 +147,7 @@ void accum_init(ForceAccum* a) {
     a->forces[0] = (float2)0.;//{ 0., 0. }, { 0., 0. }, { 0., 0. } };
     a->forces[1] = (float2)0.;//{ 0., 0. }, { 0., 0. }, { 0., 0. } };
     a->forces[2] = (float2)0.;//{ 0., 0. }, { 0., 0. }, { 0., 0. } };
-    a->cell = convert_uint2(a->raw_pos);
+    a->cell = convert_int2_rtn(a->raw_pos);
     a->cell_mid = convert_float2(a->cell) + (float2)0.5; //  center of current cell
 }
 
@@ -200,18 +198,41 @@ void ant_kernel(
 #ifdef DEBUG
     printf(" = STEP pos=(%.3f, %.3f) vel=(%.3f, %.3f)\n", pos.x, pos.y, vel.x, vel.y);
 #endif
-    //uchar out_state = state[index];
 
+    // ants could not be stopped - always in motion
+    float len = length(vel);
+    if (len == 0) {
+        // add random length rotated vector
+        float2 r = (float2)(0., accel);
+        float a = rand * M_PI * 2;
+        r = (float2)( r.y * sin(a), r.y * cos(a));
+        vel += r;
+        return;
+    }
+    //uchar out_state = state[index];
     bool emp = ant_state == empty;
+
+    // special case - diggin out from burried
+    enum CellType groundNow = groundArray[get_array_index(w, h, pos)];
+    if ( groundNow == obstacle ) {
+        vel = normalize(vel) * max_speed / (float2)10.;
+        vel += bfs_visit_cell_ground(emp, (floor(pos) + (float2)0.5) - pos, groundNow);
+        pos += normalize(vel) / (float2)2.;
+        return;
+    }
+
     // check step    float2 next_pos = pos + normalize(vel) / (float2)2.3;
     //float2 next_pos = pos + vel * delta * 15;
-    float2 next_pos = pos + normalize(vel);
+    float2 next_pos = pos + normalize(vel) / (float2)2.;
     if ( !samecell(next_pos, pos) ) {
         enum CellType groundAhead = groundArray[get_array_index(w, h, next_pos)];
         switch( groundAhead ) {
             case obstacle:
+                // special case when ant becomes buried, try to get away
+                // it could be when ground suddenly changed
                 //vel = -vel * (float2)0.1;
                 vel = (float2)0.;
+
                 return;
             case food:
                 if ( emp ) {
@@ -221,10 +242,7 @@ void ant_kernel(
                     groundArray[get_array_index(w, h, next_pos)] = empty;
                     // TBD event ant.TakeEvent
                     return;
-                } else {
-                    vel = -vel * (float2)0.1;
-                    return;
-                }
+                } // ignore otherwise
                 break;
             case nest:
                 if ( !emp ) {
@@ -233,10 +251,7 @@ void ant_kernel(
                     ant_state = empty;
                     // TBD callback to nest nest.TakeEvent
                     return;
-                } else {
-                    vel = -vel * (float2)0.1;
-                    return;
-                }
+                } // ignore otherwise
                 break;
             default:
                 break;
@@ -278,7 +293,7 @@ void ant_kernel(
         printf(" = looking around cell %d, %d\n", cp.x, cp.y);
 #endif
         float2 fcp = convert_float2(cp) + (float2)0.5;
-        float2 cell_vec = fcp - accum.cell_mid;
+        float2 cell_vec = fcp - accum.raw_pos;
 
         /// get_valid_cells
         // neighbours
@@ -345,7 +360,7 @@ void ant_kernel(
 
     //debug queue
 
-    float len = length(vel);
+    len = length(vel);
     if (len == 0) {
         // add random length rotated vector
         float2 r = (float2)(0., accel);

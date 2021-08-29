@@ -13,6 +13,7 @@ import me.zakharov.ants.gdx.AntsDrawer
 import me.zakharov.ants.model.Ants
 import me.zakharov.ants.model.AntsConfig
 import me.zakharov.ants.model.Ground
+import me.zakharov.ants.model.GroundType
 import me.zakharov.events.PauseEvent
 import me.zakharov.me.zakharov.ants.gdx.GroundDrawer
 import me.zakharov.me.zakharov.ants.gdx.createFromTexture
@@ -23,21 +24,33 @@ class TestScreen(
         val ctx: CLContext,
         val cmd: CLCommandQueue
 
-): SimpleGameScreen(game.mainCam, game.batch) {
+): SimpleGameScreen(game.camera, game.batch) {
     private val w = Gdx.app.graphics.width
     private val h = Gdx.app.graphics.height
     private val camera = OrthographicCamera().apply {
         setToOrtho(false, w.toFloat(), h.toFloat())
     }
+    private val grounds: Array<Ground.() -> Unit> = arrayOf(
+        {
+            this[0, 0] = GroundType.Nest
+            for( i in 0 until height ) {
+                this[width/2, i] = GroundType.Obstacle
+            }
+        }
+    )
 
-    private val ground by lazy { Ground(ctx, cmd, 300, 200).createFromTexture(Texture("tex/ground-2.png")) }
+    private val ground by lazy {
+        Ground(ctx, cmd, 10, 10) {
+            grounds[0].invoke(this)
+        }//.createFromTexture(Texture("tex/ground-2.png"))
+    }
     private val ants by lazy { Ants(AntsConfig(ground.width, ground.height), ctx, cmd, ground) }
     private val groundDrawer by lazy { GroundDrawer(ground) }
     private val antsDrawer by lazy { AntsDrawer(ants, game.font ) }
     private var pause = false
 
     val scene = Stage(FitViewport(w.toFloat(), h.toFloat(), camera), game.batch).apply {
-        println("Creating scene")
+        println("Test screen scene")
         addActor(groundDrawer)
         addActor(antsDrawer)
         antsDrawer.addListener {
@@ -49,14 +62,6 @@ class TestScreen(
                 else -> false
             }
         }
-    }
-
-    private val pixmap = Pixmap(w, h, Pixmap.Format.RGB888).apply {
-        filter = Pixmap.Filter.NearestNeighbour
-    }
-
-    private var tex = Texture(pixmap).apply {
-        setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
     }
 
     override fun render(delta: Float) {

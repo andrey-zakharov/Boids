@@ -27,6 +27,7 @@ import me.zakharov.ants.model.GroundType
 import me.zakharov.me.zakharov.IGameModel
 import me.zakharov.me.zakharov.PrimaryGameModel
 import me.zakharov.me.zakharov.ants.MainScreen
+import me.zakharov.me.zakharov.ants.TestScreen
 import me.zakharov.me.zakharov.ants.gdx.GroundDrawer
 import me.zakharov.utils.SimpleGameScreen
 
@@ -36,20 +37,29 @@ val warn: (m: Any?) -> Unit = ::println
 class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
     val batch by lazy { SpriteBatch() }
     val uiSkin by lazy { Skin(Gdx.files.internal("skins/comic/comic-ui.json")) }
-    val font by lazy { BitmapFont() }
+    val font by lazy { BitmapFont(true) }
     val model: IGameModel by lazy { PrimaryGameModel() }
 
     private val ctx by lazy { device.createContext() }
     private val cmd by lazy { device.createCommandQueue(ctx) }
     val maxItemsX = device.maxWorkItemSizes[0]
     val maxItemsY = device.maxWorkItemSizes[1]//, maxItemsZ)
+    internal val camera by lazy { OrthographicCamera().apply {
+        setToOrtho(true, w.toFloat(), h.toFloat())
+    }}
 
     private val screen1 by lazy { MainScreen(this, ctx, cmd).apply {
 
 
     } }
 
-    private val screen2 by lazy { object: SimpleGameScreen(camera = mainCam, batch = batch, input = inputBus) {
+    private val screen2 by lazy { TestScreen(this, ctx, cmd).apply {
+
+
+    } }
+
+    /*
+    private val screen3 by lazy { object: SimpleGameScreen(camera = camera, batch = batch, input = inputBus) {
         // TODO Ground.fromMatrix, fromPicture ctor
         private val ground by lazy { Ground(ctx, cmd, 5, 5) {
             this[0, 0] = GroundType.Nest
@@ -66,17 +76,17 @@ class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
             addActor(antsDrawer)
         }
 
-
-
-
-    } }
+        override fun render(delta: Float) {
+            super.render(delta)
+            batch.projectionMatrix = mainCam.combined
+            groundDrawer.draw(batch, 1f)
+        }
+    } }*/
 
     // gdx stuff
     private val w by lazy { Gdx.app.graphics.width }
     private val h by lazy { Gdx.app.graphics.height }
-    internal val mainCam by lazy { OrthographicCamera().apply {
-        setToOrtho(false, w.toFloat(), h.toFloat())
-    }}
+
 
     private val inputProcessor = object: KtxInputAdapter {
         override fun keyUp(keycode: Int): Boolean = when (keycode) {

@@ -3,6 +3,7 @@ package me.zakharov.utils
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.InputMultiplexer
 import com.badlogic.gdx.graphics.Camera
+import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.g2d.Batch
 import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.utils.viewport.FitViewport
@@ -23,6 +24,8 @@ open class SimpleGameScreen(
 ): KtxScreen {
     private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+
 
     private val stage by lazy {
         Stage(FitViewport(Gdx.app.graphics.width.toFloat(), Gdx.app.graphics.height.toFloat(), camera), batch).apply {
