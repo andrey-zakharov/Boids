@@ -168,7 +168,7 @@ class Ants(
                 enqueueWriteBuffer(posBuff, posCLBuff)
                 enqueueWriteBuffer(velBuff, velCLBuff)
                 enqueueWriteBuffer(from = stateBuff, to = stateCLBuff)
-                val ev = enqueueNDRangeKernel(kernel, conf.totalCount.toLong())
+                val ev = enqueueNDRangeKernel(kernel, conf.totalCount.toLong(), 0)
                 finish()
                 /// afterNDRun
                 enqueueReadBuffer(from = posCLBuff, to = posBuff)

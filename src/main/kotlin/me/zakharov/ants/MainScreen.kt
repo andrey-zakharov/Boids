@@ -44,9 +44,7 @@ class MainScreen(
     private val screenWidth = Gdx.app.graphics.width
     private val screenHeight = Gdx.app.graphics.height
 
-    private val hudCamera by lazy { OrthographicCamera().apply {
-        setToOrtho(false, screenWidth.toFloat(), screenHeight.toFloat())
-    }}
+
 
     private val testGrounds = arrayOf(
         "tex/ground-test.png",
@@ -57,25 +55,41 @@ class MainScreen(
     private var currentTex = 0
 
     // model
-    private val worldWidth = 1024f
-    private val worldHeight = 1024f
-    private val ground by lazy { Ground(ctx, cmd, worldWidth.toInt(), worldHeight.toInt())
+    private val worldWidth = 512
+    private val worldHeight = 512
+    private val antsConfig = AntsConfig(
+        worldWidth, worldHeight,1000, 7f, 90f
+    )
+
+
+    // 307200 640x480
+    private val ground by lazy { Ground(ctx, cmd, worldWidth, worldHeight)
         .createFromTexture( Texture(testGrounds[currentTex]) ).also {
             //println(it.debugString())
         }
     }
     private val pher by lazy { Pheromones(ctx, cmd, ground.width, ground.height) }
-    private val ants by lazy { Ants(AntsConfig(
-        ground.width, ground.height,1000, 9f, 90f
-    ), ctx, cmd, ground, pher).also {
+    private val ants by lazy { Ants(antsConfig, ctx, cmd, ground, pher).also {
         it.ejectAntsFromNest()
     } }
 
 
     // view
-    private val camera by lazy { OrthographicCamera(screenWidth.toFloat(), screenHeight.toFloat()).apply {
-        setToOrtho(true, ground.width.toFloat(), ground.height.toFloat())
+    private val camera by lazy {
+        OrthographicCamera(screenWidth.toFloat(), screenHeight.toFloat()).apply {
+        setToOrtho(false, ground.width.toFloat(), ground.height.toFloat())
     }}
+
+    private val antsCamera by lazy {
+        OrthographicCamera(screenWidth.toFloat(), screenHeight.toFloat()).apply {
+            setToOrtho(true, ground.width.toFloat(), ground.height.toFloat())
+    }}
+
+    private val hudCamera by lazy {
+        OrthographicCamera(screenWidth.toFloat(), screenHeight.toFloat()).apply {
+        setToOrtho(false, screenWidth.toFloat(), screenHeight.toFloat())
+    }}
+
     private val groundDrawer by lazy { GroundDrawer(ground) }
     private val antsDrawer by lazy { AntsDrawer(ants, game.font) }
     private val pherDrawer by lazy { PheromonesDrawer(pher) }
@@ -116,9 +130,11 @@ class MainScreen(
                 return true
             }
         })
+
         addActor(groundDrawer)
         addActor(pherDrawer)
-        addActor(antsDrawer.apply { debug = false })
+
+
         antsDrawer.addListener {
             when(it) {
                 is PauseEvent -> {
@@ -128,10 +144,16 @@ class MainScreen(
                 else -> false
             }
         }
+    }
 
+    private val antsScene = Stage(
+        FitViewport(antsCamera.viewportWidth, antsCamera.viewportHeight, antsCamera), game.batch
+    ).apply {
+        addActor(antsDrawer.apply { debug = false })
     }
 
     private val hudUI = Stage(FitViewport(hudCamera.viewportWidth, hudCamera.viewportHeight, hudCamera), game.batch).apply {
+
         addActor( VerticalGroup().run {
             addActor(CheckBox("draw ants", game.uiSkin).also {
                 it.isChecked = antsDrawer.enabled
@@ -224,17 +246,23 @@ class MainScreen(
         scene.viewport.apply()
         scene.draw()
 
-        scene.batch.begin()
-        game.font.draw(scene.batch, "fps: ${Gdx.graphics.framesPerSecond}", 0f, 20f)
-        game.font.draw(scene.batch, "debug: ${scene.isDebugAll}", 0f, 35f)
-        game.font.draw(scene.batch, "div: ${groundDrawer.div}", 0f, 50f)
-        scene.batch.end()
+        antsCamera.update()
+        antsScene.batch.projectionMatrix = antsCamera.combined
+        antsScene.viewport.apply()
+        antsScene.act()
+        antsScene.draw()
+
 
         hudCamera.update()
         hudUI.batch.projectionMatrix = hudCamera.combined
         hudUI.viewport.apply(true)
         hudUI.act()
         hudUI.draw()
+        scene.batch.begin()
+        game.font.draw(scene.batch, "fps: ${Gdx.graphics.framesPerSecond}", 0f, 20f)
+        game.font.draw(scene.batch, "debug: ${scene.isDebugAll}", 0f, 35f)
+        game.font.draw(scene.batch, "div: ${groundDrawer.div}", 0f, 50f)
+        scene.batch.end()
         //game.batch.end()
 
 //        if (Gdx.input.isTouched) {

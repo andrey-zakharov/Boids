@@ -37,7 +37,7 @@ val warn: (m: Any?) -> Unit = ::println
 class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
     val batch by lazy { SpriteBatch() }
     val uiSkin by lazy { Skin(Gdx.files.internal("skins/comic/comic-ui.json")) }
-    val font by lazy { BitmapFont(true) }
+    val font by lazy { BitmapFont() }
     val model: IGameModel by lazy { PrimaryGameModel() }
 
     private val ctx by lazy { device.createContext() }
