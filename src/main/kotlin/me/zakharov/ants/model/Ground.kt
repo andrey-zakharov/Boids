@@ -13,11 +13,7 @@ import me.apemanzilla.ktcl.CLCommandQueue
 import me.apemanzilla.ktcl.CLContext
 import me.apemanzilla.ktcl.cl10.KernelAccess
 import me.apemanzilla.ktcl.cl10.enqueueWriteBuffer
-import me.zakharov.Matrix2d
-import me.zakharov.createByteMatrix2d
-import me.zakharov.share
-import me.zakharov.utils.IHeadlessActor
-import me.zakharov.utils.modE
+import me.zakharov.utils.*
 
 
 //@ExportTo(opencl)

@@ -21,13 +21,22 @@ class AntsTest {
     val ctx = device.createContext()
     val cmd = device.createCommandQueue(ctx)
 
-    private val antsConfig3x3 = AntsConfig(
+    private val conf3x3 = AntsConfig(
         width = 3,
         height = 3,
         totalCount = 1,
         maxSpeed = 1.5f,
         angleDegs =  90f,
-        //clopts = arrayOf("DEBUG", "DEBUG_PATHFIND", "DEBUG_QUEUE")
+//        clopts = arrayOf("DEBUG", "DEBUG_PATHFIND", "DEBUG_QUEUE")
+    )
+
+    private val conf3x3debug = AntsConfig(
+        width = 3,
+        height = 3,
+        totalCount = 1,
+        maxSpeed = 1.5f,
+        angleDegs =  90f,
+        clopts = arrayOf("DEBUG", /*"DEBUG_PATHFIND", "DEBUG_QUEUE"*/)
     )
 
 
@@ -37,7 +46,7 @@ class AntsTest {
         totalCount = 1,
         maxSpeed = 1.5f,
         angleDegs =  90f,
-        //clopts = arrayOf("DEBUG", /*"DEBUG_PATHFIND", "DEBUG_QUEUE"*/)
+        clopts = arrayOf("DEBUG", /*"DEBUG_PATHFIND", "DEBUG_QUEUE"*/)
     )
 
     @Test fun `velocity changes on food trail`() {
@@ -46,7 +55,7 @@ class AntsTest {
         }
         val pheromones = Pheromones(ctx, cmd, 3, 3)
         pheromones.m[2, 0] = PherType.food_trail.v
-        val ants = Ants(antsConfig3x3, ctx, cmd, ground, pheromones)
+        val ants = Ants(conf3x3debug, ctx, cmd, ground, pheromones)
 
 //        ants.ejectAntsFromNest()
         // move forward
@@ -61,7 +70,7 @@ class AntsTest {
         assertTrue( pheromones.m[1, 0] != PherType.none.v, "ant should leaves trail")
         val afs = ants.snapshot()
         assertEquals(Vector2(2f, 0f), afs[0].pos)
-        assertEquals(Vector2(antsConfig3x3.maxSpeed, 0f), afs[0].vel)// not true
+        assertEquals(Vector2.X, afs[0].vel.normalized())// not true
 
 
         //val bfs = ants.snapshot()
@@ -70,12 +79,12 @@ class AntsTest {
 
     @Test fun `ant should avoid obstacles`() {
         println(" == obstacleTest == ")
-        val ground = Ground(ctx, cmd, antsConfig3x3.width, antsConfig3x3.height) {
+        val ground = Ground(ctx, cmd, conf3x3.width, conf3x3.height) {
             this[0, 0] = GroundType.Nest
             this[1, 0] = GroundType.Obstacle
         }
 
-        val ants = Ants(antsConfig3x3, ctx, cmd, ground)
+        val ants = Ants(conf3x3, ctx, cmd, ground)
         ants.set(0, AntSnapshot(Vector2(0f, 0f), Vector2(1f, 0f), AntState.empty))
         ants.act(1f)
         println( ground.debugString() )
@@ -87,13 +96,15 @@ class AntsTest {
 
     }
 
-    @Test fun `ant should take food`() = with ( Ground(ctx, cmd, antsConfig3x3.width, antsConfig3x3.height) {
+    @Test fun `ant should take food`() = with ( Ground(ctx, cmd, conf3x3.width, conf3x3.height) {
         this[0, 0] = GroundType.Nest
         this[1, 1] = GroundType.Food
     }) ground@ {
-        with( Ants(antsConfig3x3, ctx, cmd, this@ground)) {
-            set(0, AntSnapshot(Vector2(.5f, .5f), Vector2.Zero, AntState.empty))
+        with( Ants(conf3x3, ctx, cmd, this@ground)) {
+            set(0, AntSnapshot(Vector2(.5f, .5f), Vector2(-.0001f, -.0001f), AntState.empty))
+            assertTrue( snapshot()[0].vel.len() == 0f )
             act(1f) // to update vel
+            assertTrue( snapshot()[0].vel.len() > 0 )
             println(snapshot()[0])
             act( 1f ) // to get into point
             val ant = snapshot()[0]
@@ -102,7 +113,6 @@ class AntsTest {
             assertEquals(AntState.full, ant.state)
             assertEquals(GroundType.Empty.code, this@ground[1, 1])
         }
-
     }
 
     @Test fun `ant should find path around obtacle and take food behind obstacle`() = with (

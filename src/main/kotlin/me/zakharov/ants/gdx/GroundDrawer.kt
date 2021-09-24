@@ -5,6 +5,7 @@ import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.Batch
+import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.graphics.glutils.ShaderProgram
 import com.badlogic.gdx.scenes.scene2d.Actor
 import ktx.async.RenderingScope
@@ -37,9 +38,12 @@ class GroundDrawer(private val model: Ground) : Actor() {
     }
     private val glTex by lazy { Texture(wrappedTexData).apply {
         setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest)
+        setWrap(Texture.TextureWrap.Repeat, Texture.TextureWrap.Repeat)
         load(wrappedTexData)
     } }
-
+    private val glReg = TextureRegion(glTex).also {
+        it.setRegion(-0.1f, -0.1f, 1.1f, 1.1f)
+    }
     private val shaderProgram = ShaderProgram(
         Gdx.files.internal("shaders/ground.vert"),
         Gdx.files.internal("shaders/ground.frag")
@@ -55,7 +59,7 @@ class GroundDrawer(private val model: Ground) : Actor() {
         batch?.let {
             it.shader = shaderProgram
             glTex.load(wrappedTexData)
-            it.draw(glTex, 0f, 0f, stage.width, stage.height)
+            it.draw(glReg, 0f, 0f, stage.width, stage.height)
             it.shader = null
         }
     }

@@ -24,7 +24,7 @@ class TestScreen(
         val ctx: CLContext,
         val cmd: CLCommandQueue
 
-): SimpleGameScreen(game.camera, game.batch) {
+): SimpleGameScreen(game.camera, batch=game.batch) {
     private val w = Gdx.app.graphics.width
     private val h = Gdx.app.graphics.height
     private val camera = OrthographicCamera().apply {
@@ -46,7 +46,7 @@ class TestScreen(
     }
     private val ants by lazy { Ants(AntsConfig(ground.width, ground.height), ctx, cmd, ground) }
     private val groundDrawer by lazy { GroundDrawer(ground) }
-    private val antsDrawer by lazy { AntsDrawer(ants, game.font ) }
+    private val antsDrawer by lazy { AntsDrawer(ants) }
     private var pause = false
 
     val scene = Stage(FitViewport(w.toFloat(), h.toFloat(), camera), game.batch).apply {

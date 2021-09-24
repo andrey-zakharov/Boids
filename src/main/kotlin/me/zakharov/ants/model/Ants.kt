@@ -6,6 +6,7 @@ import me.apemanzilla.ktcl.CLContext
 import me.apemanzilla.ktcl.cl10.*
 import me.zakharov.Const.BOOL_SIZE
 import me.zakharov.Const.FLOAT2_SIZE
+import me.zakharov.Resettable
 import me.zakharov.d
 import me.zakharov.utils.IHeadlessActor
 import me.zakharov.warn
@@ -50,7 +51,12 @@ class Ants(
     private val cmd: CLCommandQueue,
     private val ground: Ground,
     val pheromones: Pheromones = Pheromones(ctx, cmd, conf.width, conf.height),
-) : IHeadlessActor {
+) : IHeadlessActor, Resettable {
+    override fun reset() {
+        time = 0f
+        ejectAntsFromNest()
+    }
+
     var debug = conf.debug
 
     // internal conf
@@ -72,6 +78,7 @@ class Ants(
         PherType.clCode(),
         this::class.java.getResource("/kernels/ant.c")!!.readText()
     ).also {
+        d(PherType.clCode())
         // WITH_FALLBACK_PATHFINDING=true
         val opts = mutableListOf("MAX_QUEUE_SIZE=$maxQueueSize", "MAX_LOOKUP_ANGLE=${conf.angleDegs/2}")
         if ( debug ) {
@@ -87,6 +94,7 @@ class Ants(
     private val kernel = prog.createKernel("ant_kernel").also {
         //it.setArg(1, thres)
     }
+    private val kernelMove = prog.createKernel("ant_moves")
 
     /// entities
     private val posBuff = BufferUtils.createByteBuffer(conf.totalCount * FLOAT2_SIZE)
@@ -117,6 +125,7 @@ class Ants(
     fun ejectAntsFromPoint(center: Vector2, radius: Float) {
         val p = posBuff.asFloatBuffer()
         val v = velBuff.asFloatBuffer()
+        val st = stateBuff
 
         val angleDiff: Float = PI.toFloat() * 2 / conf.totalCount
         val tempVector = Vector2(radius, 0f)
@@ -133,6 +142,7 @@ class Ants(
             val vel = tempVector.normalized()
             v.put( i * 2, vel.x)
             v.put( i * 2 + 1, vel.y)
+            st.put(i, AntState.empty.value)
             //v.put( i * 2, 0f)
             //v.put( i * 2 + 1, max_speed)
             tempVector.rotateRad(angleDiff)
@@ -146,29 +156,31 @@ class Ants(
             //val s = ceil(PI * r * r * angle_degs / 360)
             pheromones.act(delta)
 
-            with(kernel) {
-                var a = 0
-                setArg( a++, time)
-                setArg( a++, delta)
-                setArg( a++, conf.maxSpeed)
-                setArg( a++, width)
-                setArg( a++, height)
-                setArg( a++, ground.shared.remoteBuff)
-                setArg( a++, pheromones.shared.remoteBuff)
-                setArg( a++, conf.totalCount)
-                setArg( a++, posCLBuff)
-                setArg( a++, velCLBuff)
-                setArg( a++, stateCLBuff)
-    //            setArg( a++, outPosCLBuff)
+            arrayOf(kernel, kernelMove).forEach {
+                with(it) {
+                    var a = 0
+                    setArg( a++, time)
+                    setArg( a++, delta)
+                    setArg( a++, conf.maxSpeed * 30f)
+                    setArg( a++, width)
+                    setArg( a++, height)
+                    setArg( a++, ground.shared.remoteBuff)
+                    setArg( a++, pheromones.shared.remoteBuff)
+                    setArg( a++, conf.totalCount)
+                    setArg( a++, posCLBuff)
+                    setArg( a++, velCLBuff)
+                    setArg( a++, stateCLBuff)
+                    //            setArg( a++, outPosCLBuff)
+                }
             }
-
             /// beforeNDRun()
 
             with(cmd) {
                 enqueueWriteBuffer(posBuff, posCLBuff)
                 enqueueWriteBuffer(velBuff, velCLBuff)
                 enqueueWriteBuffer(from = stateBuff, to = stateCLBuff)
-                val ev = enqueueNDRangeKernel(kernel, conf.totalCount.toLong(), 0)
+                enqueueNDRangeKernel(kernel, conf.totalCount.toLong(), 0)
+                enqueueNDRangeKernel(kernelMove, conf.totalCount.toLong(), 0)
                 finish()
                 /// afterNDRun
                 enqueueReadBuffer(from = posCLBuff, to = posBuff)

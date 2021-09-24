@@ -8,10 +8,7 @@ import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration
 import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
-import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.scenes.scene2d.ui.Skin
-import com.badlogic.gdx.utils.Scaling
-import com.badlogic.gdx.utils.viewport.ScalingViewport
 import ktx.app.KtxGame
 import ktx.app.KtxInputAdapter
 import ktx.app.KtxScreen
@@ -19,24 +16,23 @@ import ktx.async.KtxAsync
 import me.apemanzilla.ktcl.CLDevice
 import me.apemanzilla.ktcl.CLException
 import me.apemanzilla.ktcl.cl10.*
-import me.zakharov.ants.gdx.AntsDrawer
-import me.zakharov.ants.model.Ants
-import me.zakharov.ants.model.AntsConfig
-import me.zakharov.ants.model.Ground
-import me.zakharov.ants.model.GroundType
 import me.zakharov.me.zakharov.IGameModel
 import me.zakharov.me.zakharov.PrimaryGameModel
-import me.zakharov.me.zakharov.ants.MainScreen
+import me.zakharov.me.zakharov.ants.AntsScreen
 import me.zakharov.me.zakharov.ants.TestScreen
-import me.zakharov.me.zakharov.ants.gdx.GroundDrawer
+import me.zakharov.me.zakharov.space.Space
+import me.zakharov.me.zakharov.space.SpaceScreen
 import me.zakharov.utils.SimpleGameScreen
+import me.zakharov.utils.formatBytes
 
 val d: (m: Any?) -> Unit = ::println
 val warn: (m: Any?) -> Unit = ::println
 
 class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
     val batch by lazy { SpriteBatch() }
-    val uiSkin by lazy { Skin(Gdx.files.internal("skins/comic/comic-ui.json")) }
+    val uiSkin by lazy {
+        Skin(Gdx.files.internal("skins/comic/comic-ui.json"))
+    }
     val font by lazy { BitmapFont() }
     val model: IGameModel by lazy { PrimaryGameModel() }
 
@@ -48,7 +44,7 @@ class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
         setToOrtho(true, w.toFloat(), h.toFloat())
     }}
 
-    private val screen1 by lazy { MainScreen(this, ctx, cmd).apply {
+    private val screen1 by lazy { AntsScreen(this, ctx, cmd).apply {
 
 
     } }
@@ -90,9 +86,15 @@ class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
 
     private val inputProcessor = object: KtxInputAdapter {
         override fun keyUp(keycode: Int): Boolean = when (keycode) {
-            Input.Keys.F1 -> setScreen<MainScreen>() == Unit
+            Input.Keys.F1 -> setScreen<AntsScreen>() == Unit
             Input.Keys.F2 -> setScreen<SimpleGameScreen>() == Unit
-            else -> { println(keycode); super.keyUp(keycode) }
+            Input.Keys.F3 -> setScreen<SpaceScreen>() == Unit
+            Input.Keys.F12 -> {
+                (currentScreen as? Resettable)?.let { it.reset() }
+                screens
+                true
+            } // reset
+            else -> false // { d(keycode); super.keyUp(keycode) }
         }
     }
 
@@ -111,7 +113,9 @@ class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
         val durMs = kotlin.system.measureTimeMillis {
             addScreen(screen1)
             addScreen(SimpleGameScreen::class.java, screen2)
-            setScreen<MainScreen>()
+            addScreen(SpaceScreen(this, ctx, cmd))
+
+            setScreen<AntsScreen>()
             super.create()
         }
         d("Created Game: $durMs ms")
@@ -124,6 +128,10 @@ class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
     }
 }
 
+interface Resettable {
+    fun reset(): Any?
+}
+
 fun main() {
 
 
@@ -133,13 +141,15 @@ fun main() {
         val plat = getPlatforms()[0]
         plat.getDefaultDevice()?.let {
             println("extensions ${it.extensions.joinToString("\n - ")}")
+            println("globalMemSize=${it.globalMemSize.toLong().formatBytes()}")
             println("image2dMaxDims ${it.image2dMaxHeight}x${it.image2dMaxWidth}")
             println("max compute units ${it.maxComputeUnits}")
             println("max const args ${it.maxConstantArgs}")
-            println("workgroup maxes size=${it.maxWorkGroupSize}, item dims=${it.maxWorkItemDimensions}")
+            println("maxWorkGroupSize=${it.maxWorkGroupSize}, maxWorkItemDimensions=${it.maxWorkItemDimensions}")
+
 
             val config = Lwjgl3ApplicationConfiguration().apply {
-                setTitle("Ants")
+                setTitle("Boids")
                 setWindowedMode(1024, 768)
                 setMaximized(true)
                 setForegroundFPS(0)

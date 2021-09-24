@@ -1,29 +1,29 @@
 package me.zakharov.ants.gdx
 
+import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Color
-import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.Batch
 import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
+import com.badlogic.gdx.math.MathUtils
 import com.badlogic.gdx.math.Matrix3
-import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.scenes.scene2d.Actor
-import com.badlogic.gdx.utils.viewport.FitViewport
-import me.zakharov.Matrix2d
 import me.zakharov.ants.model.AntState
 import me.zakharov.ants.model.Ants
-import me.zakharov.ants.model.plus
-import me.zakharov.ants.model.rotatedDeg
 
 
-class AntsDrawer(private val model: Ants, private val font: BitmapFont = BitmapFont()) : Actor() {
+class AntsDrawer(private val model: Ants, private val font: BitmapFont = BitmapFont(true)) : Actor() {
     var enabled = true // show or not
+    var showEmpty = false
+
     private val tex = Texture("tex/carpenter-ant-small.png")
     private val texfull = Texture("tex/carpenter-ant-small-full.png")
-    private val scaleMat by lazy { Matrix3().setToScaling(
-        stage.width / model.width.toFloat(),
-        stage.height / model.height.toFloat())
+    private val texScaleX by lazy { model.width.toFloat() / Gdx.app.graphics.width }
+    private val texScaleY by lazy { model.height.toFloat() / Gdx.app.graphics.height }
+
+    private val scaleMat by lazy {
+        Matrix3().setToScaling( texScaleX, texScaleY)
     }
 
     override fun act(delta: Float) {
@@ -36,16 +36,19 @@ class AntsDrawer(private val model: Ants, private val font: BitmapFont = BitmapF
         batch?.let {
 
             model.forEach { pos, vel, st ->
-                val t = if (st == AntState.empty) tex else texfull
+                // filter
+                if ( !showEmpty && st == AntState.empty ) return@forEach
+                val t = if ( showEmpty ) if (st == AntState.empty) tex else texfull else tex
 
                 // pos2world
                 it.draw(
                     t,
                     pos.x - t.width / 2f,
                     pos.y - t.height / 2f,
+//                    stage.width / 2, stage.height/2,
                     t.width / 2f, t.height / 2f,
                     t.width.toFloat(), t.height.toFloat(),
-                    1f, 1f, vel.angleDeg() - 90,
+                    texScaleX, texScaleY, vel.angleDeg() - 90,
                     0, 0,
                     t.width, t.height,
                     false, false
@@ -54,11 +57,11 @@ class AntsDrawer(private val model: Ants, private val font: BitmapFont = BitmapF
                 //font.draw(batch, "%.2fx%.2f".format(p[2*i], p[2*i+1]), pos.x, pos.y + 20f )
                 // if this ant debug
                 // selected
-                if ( debug ) {
-                    font.draw(batch, "%.2fx%.2f".format(vel.x, vel.y), pos.x, pos.y + 20f)
-                    //conf.font.draw(batch, actlast.toString(), pos.x - 10f, pos.y - 20f)
-                    font.draw(batch, st.toString(), pos.x + 10f, pos.y - 20f)
-                }
+//                if ( debug ) {
+//                    font.draw(batch, "%.2fx%.2f".format(vel.x, vel.y), pos.x, pos.y + 20f)
+//                    //conf.font.draw(batch, actlast.toString(), pos.x - 10f, pos.y - 20f)
+//                    font.draw(batch, st.toString(), pos.x + 10f, pos.y - 20f)
+//                }
             }
 
         }
@@ -70,16 +73,24 @@ class AntsDrawer(private val model: Ants, private val font: BitmapFont = BitmapF
             // save state
             val old = color
             model.forEach { pos, vel, st ->
-                color = Color.RED
-                val viewVel = vel
-                val p = pos.mul(scaleMat)
-                rectLine(p, p + viewVel, 10f)
+                //color = Color.RED
+                //rectLine(p, p + viewVel, 2f)
 
-                color = Color.GOLD
-                val lBound = p + viewVel.rotatedDeg(-model.conf.angleDegs)
-                val rBound = p + viewVel.rotatedDeg(model.conf.angleDegs)
-                triangle(p.x, p.y, lBound.x, lBound.y, rBound.x, rBound.y)
-
+                color = if (st == AntState.empty ) Color.GOLD else Color.GREEN
+                if (vel.len() > 0 ) {
+                    arc(
+                        pos//.mul(scaleMat)
+                            .x,
+                        pos//.mul(scaleMat)
+                            .y,
+                        vel.len(),
+                        /*start = */
+                        kotlin.math.atan2(vel.y, vel.x) * MathUtils.radiansToDegrees - model.conf.angleDegs / 2,
+                        /*degrees = */
+                        model.conf.angleDegs,
+                        5
+                    )
+                }
             }
             // load state
             color = old

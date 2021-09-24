@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.g2d.Batch
 import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.utils.viewport.FitViewport
+import com.badlogic.gdx.utils.viewport.Viewport
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -16,8 +17,28 @@ import ktx.app.KtxScreen
 fun createScreen(block: SimpleGameScreen.() -> Unit) {
 
 }
+open class InteractiveScreen(
+    private val input: InputMultiplexer? = Gdx.input.inputProcessor as? InputMultiplexer,
+    private val stage: Stage
+) : KtxScreen {
+    override fun show() {
+        super.show()
+        input?.apply {
+            addProcessor(stage)
+        }
+    }
+
+    override fun hide() {
+        super.hide()
+        input?.apply {
+            removeProcessor(stage)
+        }
+    }
+}
+
 open class SimpleGameScreen(
     private val camera: Camera,
+    private val viewport: Viewport = FitViewport(Gdx.app.graphics.width.toFloat(), Gdx.app.graphics.height.toFloat(), camera),
     private val batch: Batch?,
     private val input: InputMultiplexer? = Gdx.input.inputProcessor as? InputMultiplexer,
     sceneBlock: Stage.() -> Unit = { }
@@ -28,7 +49,7 @@ open class SimpleGameScreen(
 
 
     private val stage by lazy {
-        Stage(FitViewport(Gdx.app.graphics.width.toFloat(), Gdx.app.graphics.height.toFloat(), camera), batch).apply {
+        Stage(viewport, batch).apply {
             this.sceneBlock()
         }
     }

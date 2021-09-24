@@ -1,19 +1,73 @@
 package me.zakharov.ants.model
 
 import com.badlogic.gdx.math.MathUtils.lerp
+import me.apemanzilla.ktcl.CLBuffer
 import me.apemanzilla.ktcl.CLCommandQueue
 import me.apemanzilla.ktcl.CLContext
+import me.apemanzilla.ktcl.CLKernel
 import me.apemanzilla.ktcl.cl10.*
-import me.zakharov.createFloatMatrix2d
-import me.zakharov.share
-import me.zakharov.utils.IHeadlessActor
+import me.zakharov.Resettable
+import me.zakharov.utils.*
+
 import java.io.OutputStream
 import java.io.PrintStream
+import kotlin.math.ceil
 
+/// in sources (${kernel_name}.c) should be kernel function name $kernel_name
+open class Kernel(val kernelName: String,
+             val kernelSource: String = Kernel::class.java.getResource("/kernels/${kernelName}.c")!!.readText(),
+             kernelInitArgs: CLKernel.() -> Unit = { }
+) : IHeadlessActor {
+    // cl stuff
+    companion object {
+        private var i = 0
+        val clDevice by lazy {
+            getPlatforms()
+                .first { clPlatform -> clPlatform.getDefaultDevice() != null }
+                .getDevices(type = DeviceType.GPU)[0]
+        }
+        val ctx by lazy { clDevice.createContext() }
+        val cmd by lazy {
+            println("creating CMD QUEUE ${i++}")
+            clDevice.createCommandQueue(ctx)
+        }
+    }
+    internal val kernel = ctx.createProgramWithSource(kernelSource).also { it.build() }
+        .createKernel(kernelName).apply(kernelInitArgs)
+    override fun act(delta: Float) = Unit
+}
+
+class Sum : Kernel("sum") {
+    fun sum(sharedBuffer: SharedBuffer) {
+        val global_size = sharedBuffer.buff.asFloatBuffer().capacity().toLong()
+        val group_size = global_size
+        val total_groups = ceil(global_size / group_size.toFloat()).toInt()
+        println("[sum] global_size=$global_size group_size=$group_size total_groups=$total_groups")
+        val res = ctx.createSharedFloatArray(total_groups, KernelAccess.WriteOnly)
+
+        with(kernel) {
+            setArg(0, sharedBuffer.remoteBuff)
+            setArg(1, res.remoteBuff)
+        }
+
+        with(cmd) {
+            enqueueWrite(sharedBuffer)
+            enqueueNDRangeKernel(kernel, 1, null,
+                globalWorkSize = LongArray(1) { global_size },
+                localWorkSize = LongArray(1) { group_size }
+            )
+            finish()
+            enqueueRead(res)
+        }
+
+        res.buff.print()
+    }
+
+}
 
 data class PheromonesConfig(
-    val alpha: Float = 0.95f, // in 1 sec
-    val thres: Float = 0.01f
+    val alpha: Float = 0.999f, // in 1 sec
+    val thres: Float = 0.0001f
 )
 //enum PherType { none = 0, trail = 1, food_trail = -1, debug = -2 } ;
 // @CLCode
@@ -37,12 +91,12 @@ class Pheromones(
         val width: Int,
         val height: Int,
         kernel: String = Pheromones::class.java.getResource("/kernels/decay.kernel")!!.readText()
-) : IHeadlessActor {
+) : IHeadlessActor, Resettable {
 
-    private val alpha: Float = 0.75f // in 1 sec
-    private val thres: Float = 0.003f
+    private val alpha: Float = 0.95f // in 1 sec
+    private val thres: Float = 0.001f
 
-    fun reset(): Boolean {
+    override fun reset(): Boolean {
         m.clear()
         return true
     }

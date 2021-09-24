@@ -1,7 +1,7 @@
 package me.zakharov.utils
 
-import com.badlogic.gdx.math.Vector2
 import java.nio.ByteBuffer
+
 fun Byte.toHexString() = "%h".format(this)
 fun ByteBuffer.print() {
     for( i in 0 until capacity() ) {
@@ -22,4 +22,24 @@ fun Int.modE(d: Int): Int {
         r = if (d > 0) r + d else r - d
     }
     return r
+}
+
+fun<T> T.formatBytes(): String where T: Number, T: Comparable<T> {
+    var r = this.toLong() // could be overflown if from ULong
+    val digits = listOf(10e12 to "Tera", 10e9 to "Giga", 10e6 to "Mega", 10e3 to "kilo")
+        .map { it.first.toLong() to it.second.first() }.toMutableList()
+    return with(mutableListOf<String>()) {
+        while (digits.isNotEmpty()) {
+            if (r >= digits.first().first) {
+                val digitValue = r / digits.first().first
+                add("$digitValue${digits.first().second}")
+                r -= digitValue * digits.first().first
+            }
+            digits.removeFirst()
+        }
+        if ( r > 0 ) {
+            add("$r bytes")
+        }
+        joinToString(" ")
+    }
 }
