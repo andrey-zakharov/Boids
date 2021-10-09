@@ -11,8 +11,7 @@ import com.badlogic.gdx.scenes.scene2d.InputListener
 import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.scenes.scene2d.ui.*
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener
-import com.badlogic.gdx.utils.viewport.FitViewport
-import com.badlogic.gdx.utils.viewport.ScreenViewport
+import com.badlogic.gdx.utils.viewport.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.collect
@@ -61,19 +60,19 @@ class AntsScreen(
     private var currentTex = 0
 
     // model
-    private var worldWidth = 1000//screenWidth / 4// 1 shl 9 // x
+    private var worldWidth = 500//screenWidth / 4// 1 shl 9 // x
 
     //        set(value) {
 //            ground = null
 //        }
-    private val worldHeight = 1000//screenHeight / 5 // 1 shl 9 //
-    internal var totalCount: Int = 50
+    private val worldHeight = 500//screenHeight / 5 // 1 shl 9 //
+    internal var totalCount: Int = 100
         set(v: Int) {
             //reinit all?
             field = v
         }
     private val antsConfig = AntsConfig(
-        worldWidth, worldHeight, 500, 4f, 180f
+        worldWidth, worldHeight, totalCount, 10f, 90f
     )
 
 
@@ -104,7 +103,9 @@ class AntsScreen(
 
     private val antsCamera by lazy {
         OrthographicCamera().apply {
-            setToOrtho(true, ground.width.toFloat() * 1.2f, ground.height.toFloat() * 1.2f)
+            setToOrtho(true, ground.width.toFloat(), ground.height.toFloat())
+            //translate(-ground.width * 0.1f, -ground.height * 0.1f)
+
         }
     }
 
@@ -214,7 +215,7 @@ class AntsScreen(
     }
 
     private val antsScene = Stage(
-        FitViewport(antsCamera.viewportWidth, antsCamera.viewportHeight, antsCamera), game.batch
+        StretchViewport(antsCamera.viewportWidth * 1.2f, antsCamera.viewportHeight * 1.2f, antsCamera), game.batch
     ).apply {
         addActor(antsDrawer.apply { debug = false })
     }

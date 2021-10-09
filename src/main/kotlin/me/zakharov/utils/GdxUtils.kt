@@ -10,6 +10,36 @@ import com.badlogic.gdx.graphics.glutils.ShaderProgram
 import com.badlogic.gdx.utils.GdxRuntimeException
 import java.nio.ByteBuffer
 
+internal class WrappedFloat3dTextureData(val w: Int, val h: Int, val z: Int, private val buff: ByteBuffer) :
+    TextureData
+{
+    override fun getType() = TextureData.TextureDataType.Custom
+    private var _isPrepared = false
+    override fun isPrepared(): Boolean = _isPrepared
+    override fun prepare() {
+        if (isPrepared) throw GdxRuntimeException("Already prepared")
+        _isPrepared = true
+    }
+    override fun consumePixmap(): Pixmap? {
+        throw GdxRuntimeException("This TextureData implementation does not return a Pixmap")
+    }
+    override fun disposePixmap(): Boolean {
+        throw GdxRuntimeException("This TextureData implementation does not return a Pixmap")
+    }
+
+    override fun consumeCustomData(target: Int) {
+        Gdx.gl30.glTexImage3D(target, 0, GL30.GL_R32F,
+            w, h, z, 0,
+            GL30.GL_RED, GL20.GL_FLOAT, buff
+        )
+    }
+
+    override fun getWidth() = w
+    override fun getHeight() = h
+    override fun getFormat() = Pixmap.Format.RGBA8888 // it's not true, but FloatTextureData.getFormat() isn't used anywhere
+    override fun useMipMaps() = false
+    override fun isManaged() = false
+}
 
 internal class WrappedFloatTextureData(w: Int, h: Int, private val buff: ByteBuffer)
     : FloatTextureData(w, h, GL30.GL_R32F, GL30.GL_RED, 0, false) {

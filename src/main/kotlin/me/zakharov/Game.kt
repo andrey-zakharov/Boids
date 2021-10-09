@@ -153,6 +153,7 @@ fun main() {
                 setWindowedMode(1024, 768)
                 setMaximized(true)
                 setForegroundFPS(0)
+                useOpenGL3(true, 3, 2)
             }
             Lwjgl3Application(Game(it), config).logLevel = Application.LOG_DEBUG
         }

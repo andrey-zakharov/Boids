@@ -161,7 +161,7 @@ class Ants(
                     var a = 0
                     setArg( a++, time)
                     setArg( a++, delta)
-                    setArg( a++, conf.maxSpeed * 30f)
+                    setArg( a++, conf.maxSpeed)
                     setArg( a++, width)
                     setArg( a++, height)
                     setArg( a++, ground.shared.remoteBuff)
@@ -211,7 +211,7 @@ class Ants(
 
     fun debugScanning() {
         var r = 0
-        pheromones.m.forEach { x, y, v ->
+        pheromones.m.forEach { x, y, z, v ->
             if ( v == PherType.food_trail.v) r++
         }
 

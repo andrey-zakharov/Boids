@@ -105,7 +105,7 @@ class Pheromones(
     private val prog = ctx.createProgramWithSource( kernel )
             .also { it.build() }
 
-    internal val m = createFloatMatrix2d(width, height)
+    internal val m = createFloatMatrix3d(width, height, 2)
     internal val shared = ctx.share(m.buff)
 
     private val kernel = prog.createKernel("decay_kernel").apply {
@@ -123,7 +123,7 @@ class Pheromones(
 
         with(cmd) {
             enqueueWriteBuffer(shared.buff, shared.remoteBuff)
-            enqueueNDRangeKernel(kernel, m.width*m.height.toLong())
+            enqueueNDRangeKernel(kernel, 2*m.width*m.height.toLong())
             finish()
             enqueueReadBuffer(shared.remoteBuff, shared.buff)
         }
@@ -135,7 +135,7 @@ class Pheromones(
         val b = "+" + "=".repeat(width) + "+"
         with(PrintStream(buff)) {
             print(b)
-            m.forEach { x, y, v ->
+            m.forEach { x, y, z, v ->
                 if ( x == 0 ) {
                     if ( y != 0 ) print("!")
                     println()

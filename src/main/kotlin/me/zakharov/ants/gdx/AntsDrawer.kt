@@ -92,6 +92,8 @@ class AntsDrawer(private val model: Ants, private val font: BitmapFont = BitmapF
                     )
                 }
             }
+            color = Color.BROWN
+            shapes.rect(-5f, -5f, 10f, 10f)
             // load state
             color = old
         }

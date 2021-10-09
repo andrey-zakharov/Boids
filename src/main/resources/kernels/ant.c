@@ -2,10 +2,20 @@
     #define MAX_LOOKUP_ANGLE 30.
 #endif
 
+// Moore neighborhood 1 level
 __constant float2 d[8] = {
 	(float2)(-1., -1.), (float2)(0., -1.), (float2)(1., -1.),
 	(float2)(-1.,  0.), 			       (float2)(1.,  0.),
 	(float2)(-1., +1.), (float2)(0., +1.), (float2)(1., +1.),
+};
+
+// Moore neighborhood 2 level
+__constant float2 dd[24] = {
+	(float2)(-2., -2.), (float2)(-1., -2.), (float2)(0., -2.), (float2)(1., -2.), (float2)(2., -2.),
+	(float2)(-2., -1.), (float2)(-1., -1.), (float2)(0., -1.), (float2)(1., -1.), (float2)(2., -1.),
+	(float2)(-2., 0.), (float2)(-1., 0.),                   (float2)(1., 0.), (float2)(2., 0.),
+	(float2)(-2., 1.), (float2)(-1., 1.), (float2)(0., 1.), (float2)(1., 1.), (float2)(2., 1.),
+	(float2)(-2., 2.), (float2)(-1., 2.), (float2)(0., 2.), (float2)(1., 2.), (float2)(2., 2.),
 };
 
 enum State { empty = 0, full = 1 } ;
@@ -99,39 +109,27 @@ float2 bfs_visit_cell_ground(bool emp, float2 cell_vec, enum CellType ground) {
 }
 
 // // get force according to pher cell
-float2 bfs_visit_cell_pheromones(bool emp, float2 cell_vec, float ph) {
+float2 bfs_visit_cell_pheromones(float2 cell_vec, float attract, float repulse) {
     float2 f = { 0., 0. };
-    if ( ph == none ) return f;
+    if ( attract == 0 && repulse == 0 ) return f;
 
-    if ( ph < 0 ) { // food trail
-        if ( emp ) { // power boost toward food!
-            f = cell_vec / (float2)-ph;
+    if ( attract ) {
+        f = cell_vec / (float2)(attract+1.);
             //printf("Found food trail force = %f, %f\n", f.x, f.y);
-        }
-        // else go according to simple trails
-        //force = iorigin - fcp;
-    } else { // trail
-        if ( emp ) { // reflect
-            f = -cell_vec * (float2)ph;
+    }
 
-        } else { // go to nest
-            f = cell_vec /*/ (float2)ph*/;
-        }
+    if ( repulse ) {
+        f = -cell_vec * (float2)(repulse/25.);
     }
 
     return f;
 }
 
-//int2 get_cell(float2 pos) {
-//    int x, y;
-//    if (pos.x < 0) x = convert_int2_rtn(pos.x);
-//    else x = convert_int_rtp(pos.x);
-//}
-
 typedef struct {
     // global
     uint w;
     uint h;
+    uint sq;
     __global uchar*     ground;
     __global float*     pheromones;
     // ant
@@ -152,21 +150,20 @@ void accum_init(ForceAccum* a) {
     a->forces[2] = (float2)0.;//{ 0., 0. }, { 0., 0. }, { 0., 0. } };
     a->cell = convert_int2_rtn(a->raw_pos);
     a->cell_mid = convert_float2_rtn(a->cell) + (float2)0.5; //  center of current cell
+    a->sq = a->w * a->h;
 }
 
 void accum_visit(ForceAccum* a, float2 cell_vec) {
     float2 target = a->cell_mid + cell_vec;
     a->forces[0] += bfs_visit_cell_ground(a->emp, cell_vec, a->ground[get_array_index(a->w, a->h, target)]);
-
     float pher = a->pheromones[get_array_index(a->w, a->h, target)];
-    int res_index = 2; // forceFromFoodPheromon
+    float foodph = a->pheromones[get_array_index(a->w, a->h, target) + a->sq];
 
-    if (pher > 0) {
-        res_index = 1; // forceFromPheromon
+    if ( !a->emp ) {
+        a->forces[1] += bfs_visit_cell_pheromones(cell_vec, pher, 0.);
+    } else {
+        a->forces[1] += bfs_visit_cell_pheromones(cell_vec, foodph, pher);
     }
-    a->forces[res_index] += bfs_visit_cell_pheromones(a->emp, cell_vec, pher)
-        //* (float2)mix((float)0.5, (float)1.0, rand)
-    ;
 }
 
 #define KERNELS_ARGS     float time,\
@@ -189,44 +186,12 @@ void accum_visit(ForceAccum* a, float2 cell_vec) {
 #define rand (random(pos + vel + (float2)(index+1) * (float2)time + (float2)(++_random_call)))
 
 __kernel
-void ant_forces(KERNELS_ARGS) {
-    int index = get_global_id(0);
-    int _random_call = 0.;
-    // bfs
-}
-
-__kernel
 void ant_moves(KERNELS_ARGS) {
     int index = get_global_id(0);
     int _random_call = 0.;
     float len = length(vel);
     if (len == 0) {
         return;
-    }
-
-    // Leave pheromones
-    //bool low_level = 0.5 > length(accum.forces[1]) + length(accum.forces[2]);
-    float trailToLeave = trail;
-    if ( !isEmpty ) trailToLeave = food_trail;
-    float current_pher = pheromonesArray[get_array_index(w, h, pos)];
-    if ( current_pher == empty && rand > 0.75 ) {
-        pheromonesArray[get_array_index(w, h, pos)] += trailToLeave / min((float)1., sqrt((float)ants_count)) / 2.;
-    } else {
-
-        //if (rand > 0.75) {
-
-            // current_pher * trailToLeave > 0  ) { // same sign allowed
-            //lerp phers
-            float cv = pheromonesArray[get_array_index(w, h, pos)];
-            float nv = 0.;
-            if ( current_pher > 0 && !isEmpty ) {
-                nv = mix(cv, trailToLeave, (float)0.1);
-            } else {
-                nv = mix(cv, trailToLeave, (float)0.01);
-            }
-
-            pheromonesArray[get_array_index(w, h, pos)] = nv;
-        //}
     }
 
     // special case - diggin out from burried
@@ -244,8 +209,8 @@ void ant_moves(KERNELS_ARGS) {
             case obstacle:
                 // special case when ant becomes buried, try to get away
                 // it could be when ground suddenly changed
-                //vel = -vel * (float2)0.1;
-                vel = (float2)0.;
+                vel = -vel * (float2)0.1;
+                //vel = (float2)0.;
 
                 return;
             case food:
@@ -270,6 +235,17 @@ void ant_moves(KERNELS_ARGS) {
             default:
                 break;
         }
+
+        // Leave pheromones
+        __global float* arr = pheromonesArray;
+        if ( !isEmpty ) arr = pheromonesArray + w * h;
+
+        float current_pher = arr[get_array_index(w, h, pos)];
+        for ( uint i = 0; i < sizeof(d)/sizeof(int2); i++ ) {
+            current_pher += arr[get_array_index(w, h, pos+d[i])];
+        }
+
+        arr[get_array_index(w, h, pos)] += 0.1;//mix(current_pher / (float)9., (float)1., (float)0.25);
     }
 
     pos = wrap_bounds(next_pos, w, h);
@@ -359,26 +335,12 @@ void ant_kernel(KERNELS_ARGS) {
 #endif
         // velocity accelerations
     vel += accum.forces[0];  //ground
-    vel += accum.forces[1];  //ground
-    vel += accum.forces[2];  //ground
-    /*if ( emp ) {
-        if ( length(accum.forces[2]) > 0 ) { //anger mode - only this phers accounts
-            vel += accum.forces[2] ;//*(float2)(2.)  / obstacles_found;
-        } else {
-            vel += accum.forces[1] / (float2)5.; // trails
-        }
-    } else {
-        if ( length(accum.forces[1]) > 0 ) {
-            vel += accum.forces[1];
-        } else {
-            vel += accum.forces[2] / (float2)2.;
-        }
-    }*/
+    vel += accum.forces[1];
 
     // random fluctuation
     float r = (rand - 0.5) * 0.17453292519943 /*10 deg*/;
     //r = 0.01;
-    //vel = (float2)( vel.x * cos(r) - vel.y * sin(r), vel.x * sin(r) + vel.y * cos(r) );
+    vel = (float2)( vel.x * cos(r) - vel.y * sin(r), vel.x * sin(r) + vel.y * cos(r) );
 
     //debug queue
 
