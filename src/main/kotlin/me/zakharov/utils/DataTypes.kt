@@ -5,6 +5,8 @@ import me.zakharov.getTypeSize
 import org.lwjgl.BufferUtils
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.nio.FloatBuffer
+import java.nio.IntBuffer
 
 abstract class Matrix2dProjector {
     abstract val width: Int
@@ -16,8 +18,9 @@ abstract class Matrix2dProjector {
 }
 
 inline fun<reified T> ByteBuffer.asBuff(): java.nio.Buffer = when {
-    T::class == Float::class -> asFloatBuffer()
-    T::class == Byte::class -> this
+    T::class == Float::class || T::class == FloatBuffer::class -> asFloatBuffer()
+    T::class == Byte::class || T::class == ByteBuffer::class -> this
+    T::class == Int::class || T::class == IntBuffer::class -> asIntBuffer()
     else -> throw NotImplementedError(T::class.toString())
 }
 
@@ -60,11 +63,17 @@ abstract class Matrix3d<T>(val width: Int, val height: Int, val depth: Int, priv
         }
     }
 }
+fun createIntMatrix2d(width: Int, height: Int) = object : Matrix2d<Int>(width, height, Const.INT_SIZE) {
+    val ib = buff.asIntBuffer()
+    override operator fun get(x: Int, y: Int) = ib.get(y * width + x)
+    override operator fun set(x: Int, y: Int, v: Int) { ib.put(y * width + x, v) }
+}
 
 fun createFloatMatrix2d(width: Int, height: Int) = object : Matrix2d<Float>(width, height, Const.FLOAT_SIZE) {
     override operator fun get(x: Int, y: Int) = buff.asFloatBuffer().get(y * width + x)
     override operator fun set(x: Int, y: Int, v: Float) { buff.asFloatBuffer().put(y * width + x, v) }
 }
+
 fun createFloatMatrix3d(width: Int, height: Int, depth: Int) = object : Matrix3d<Float>(width, height, depth, Const.FLOAT_SIZE) {
     val sq = width * height
     override operator fun get(x: Int, y: Int, z: Int) = buff.asFloatBuffer().get(sq * z + y * width + x)

@@ -12,7 +12,7 @@ import ktx.async.RenderingScope
 import me.zakharov.ants.model.Ground
 import me.zakharov.ants.model.GroundType
 import me.zakharov.d
-import me.zakharov.utils.WrappedByteTextureData
+import me.zakharov.utils.ByteTextureData
 import me.zakharov.utils.safeSetUniform
 
 class GroundDrawer(private val model: Ground) : Actor() {
@@ -34,7 +34,7 @@ class GroundDrawer(private val model: Ground) : Actor() {
 
     var drawGround = true
     private val wrappedTexData by lazy {
-        WrappedByteTextureData(model.width, model.height, model.shared.buff)
+        ByteTextureData(model.width, model.height, model.shared.buff)
     }
     private val glTex by lazy { Texture(wrappedTexData).apply {
         setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest)

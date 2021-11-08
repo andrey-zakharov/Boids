@@ -1,19 +1,14 @@
 package me.zakharov.ants.gdx
 
 import com.badlogic.gdx.Gdx
-import com.badlogic.gdx.graphics.GL30
-import com.badlogic.gdx.graphics.GLTexture
 import com.badlogic.gdx.graphics.Texture
-import com.badlogic.gdx.graphics.TextureData
 import com.badlogic.gdx.graphics.g2d.Batch
 import com.badlogic.gdx.graphics.g2d.TextureRegion
 import com.badlogic.gdx.graphics.glutils.ShaderProgram
 import com.badlogic.gdx.scenes.scene2d.Actor
 import me.zakharov.Const
 import me.zakharov.ants.model.Pheromones
-import me.zakharov.utils.WrappedFloat3dTextureData
-import me.zakharov.utils.WrappedFloatTextureData
-import java.nio.ByteBuffer
+import me.zakharov.utils.FloatTextureData
 
 class PheromonesDrawer(pher: Pheromones): Actor() {
     var debug = 0
@@ -26,8 +21,8 @@ class PheromonesDrawer(pher: Pheromones): Actor() {
     }
 
     private val data = arrayOf(
-        WrappedFloatTextureData(pher.width, pher.height, pher.m.buff.apply { position(0) }.slice()),
-        WrappedFloatTextureData(pher.width, pher.height,
+        FloatTextureData(pher.width, pher.height, pher.m.buff.apply { position(0) }.slice()),
+        FloatTextureData(pher.width, pher.height,
             pher.m.buff.apply {position(pher.width*pher.height* Const.FLOAT_SIZE)}.slice()
         )
     )

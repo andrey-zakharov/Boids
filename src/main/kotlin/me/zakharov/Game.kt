@@ -20,6 +20,7 @@ import me.zakharov.me.zakharov.IGameModel
 import me.zakharov.me.zakharov.PrimaryGameModel
 import me.zakharov.me.zakharov.ants.AntsScreen
 import me.zakharov.me.zakharov.ants.TestScreen
+import me.zakharov.me.zakharov.replicators.ReplicatorsScreen
 import me.zakharov.me.zakharov.space.Space
 import me.zakharov.me.zakharov.space.SpaceScreen
 import me.zakharov.utils.SimpleGameScreen
@@ -87,8 +88,9 @@ class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
     private val inputProcessor = object: KtxInputAdapter {
         override fun keyUp(keycode: Int): Boolean = when (keycode) {
             Input.Keys.F1 -> setScreen<AntsScreen>() == Unit
-            Input.Keys.F2 -> setScreen<SimpleGameScreen>() == Unit
-            Input.Keys.F3 -> setScreen<SpaceScreen>() == Unit
+            Input.Keys.F2 -> setScreen<ReplicatorsScreen>() == Unit
+            Input.Keys.F3 -> setScreen<SimpleGameScreen>() == Unit
+            Input.Keys.F4 -> setScreen<SpaceScreen>() == Unit
             Input.Keys.F12 -> {
                 (currentScreen as? Resettable)?.let { it.reset() }
                 screens
@@ -112,10 +114,12 @@ class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
         KtxAsync.initiate()
         val durMs = kotlin.system.measureTimeMillis {
             addScreen(screen1)
+            addScreen(ReplicatorsScreen(batch, uiSkin))
             addScreen(SimpleGameScreen::class.java, screen2)
             addScreen(SpaceScreen(this, ctx, cmd))
 
-            setScreen<AntsScreen>()
+//            setScreen<AntsScreen>()
+            setScreen<ReplicatorsScreen>()
             super.create()
         }
         d("Created Game: $durMs ms")
@@ -160,6 +164,7 @@ fun main() {
 
     } catch (e: CLException) {
         System.err.println(e)
+        System.err.println(e.stackTraceToString())
         //return 1
         //error("CL exception", e)
     }

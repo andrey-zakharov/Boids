@@ -9,6 +9,7 @@ import me.zakharov.Const.FLOAT2_SIZE
 import me.zakharov.Resettable
 import me.zakharov.d
 import me.zakharov.utils.IHeadlessActor
+import me.zakharov.utils.clCode
 import me.zakharov.warn
 import org.lwjgl.BufferUtils
 import java.util.*
@@ -72,13 +73,11 @@ class Ants(
     private val maxQueueSize =
         ceil(PI * conf.maxSpeed * conf.maxSpeed * conf.angleDegs / 360f).toUInt().coerceAtLeast(9u)
 
-    @ExperimentalUnsignedTypes
     private val prog = ctx.createProgramWithSource(
         this::class.java.getResource("/kernels/queue.c")!!.readText(),
-        PherType.clCode(),
+        clCode<PherType>(),
         this::class.java.getResource("/kernels/ant.c")!!.readText()
     ).also {
-        d(PherType.clCode())
         // WITH_FALLBACK_PATHFINDING=true
         val opts = mutableListOf("MAX_QUEUE_SIZE=$maxQueueSize", "MAX_LOOKUP_ANGLE=${conf.angleDegs/2}")
         if ( debug ) {
