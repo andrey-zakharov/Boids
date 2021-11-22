@@ -1,6 +1,7 @@
 package me.zakharov.me.zakharov.replicators.model
 
 import me.apemanzilla.ktcl.cl10.enqueueNDRangeKernel
+import me.apemanzilla.ktcl.cl10.finish
 import me.apemanzilla.ktcl.cl10.setArg
 import me.zakharov.utils.*
 // PARAMS
@@ -16,7 +17,11 @@ class WorldSystem(val cf: WorldConf) {
         val light = createFloatMatrix2d(cf.width, cf.height)
         val minerals = createFloatMatrix2d(cf.width, cf.height)
         val moisture = createFloatMatrix2d(cf.width, cf.height)
-        val cells = createByteMatrix2d(cf.width, cf.height)
+        val cells = createByteMatrix2d(cf.width, cf.height).apply {
+            for (x in 0 until 15) {
+                this[x, 10] = GroundType.obstacle.ordinal.toByte()
+            }
+        }
 /*        override fun get(x: Int, y: Int): Cell {
             return Cell(light[x, y], minerals[x, y], moisture[x, y])
         }
@@ -45,14 +50,12 @@ class WorldSystem(val cf: WorldConf) {
                 setArg(a++, delta)
                 setArg(a++, cf.width)
                 setArg(a++, cf.height)
-                setArg(a++, cls[0].remoteBuff)
-                setArg(a++, cls[1].remoteBuff)
-                setArg(a++, cls[2].remoteBuff)
-                setArg(a++, cls[3].remoteBuff)
+                cls.forEach { setArg(a++, it.remoteBuff) }
             }
             cls.forEach { cmd.enqueueWrite(it) }
             cmd.enqueueNDRangeKernel(kernel, 1, null,
-                longArrayOf(globalSize.toLong()), longArrayOf(cf.height.toLong()))
+                longArrayOf(globalSize.toLong()), longArrayOf(cf.width.toLong()))
+            cmd.finish()
             cls.forEach { cmd.enqueueRead(it) }
         }
     } }

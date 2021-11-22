@@ -120,7 +120,7 @@ class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
 
 //            setScreen<AntsScreen>()
             setScreen<ReplicatorsScreen>()
-            super.create()
+            //super.create()
         }
         d("Created Game: $durMs ms")
     }

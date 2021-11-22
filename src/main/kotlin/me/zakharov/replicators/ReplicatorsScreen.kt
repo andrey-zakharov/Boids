@@ -29,21 +29,46 @@ class ReplicatorsScreen(private val batch: Batch?,
 
     private val model by lazy {
         BacteriaSystem(
-            BacteriaConf(maxAge = 10000), WorldSystem(WorldConf(width = 256, height = 256))
+            BacteriaConf(maxAge = 10000), WorldSystem(WorldConf(width = 50, height = 50))
         )
     }
     private var selected: Int = -1
 
     private val ui by lazy {
         val random = Random(System.currentTimeMillis())
-        Stage(FitViewport(Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat()), batch).apply {
+        Stage(ScreenViewport(/*Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat()*/), batch).apply {
             //isDebugAll = true
+            addActor(HorizontalGroup().apply {
+                top()
+                rowCenter()
+                setFillParent(true)
+                addActor(object: Label("total: ", skin ) {
+                    override fun act(delta: Float) {
+                        super.act(delta)
+                        setText("total: ${model.current_idx}")
+                    }
+                })
+
+            })
 
             addActor(VerticalGroup().apply {
                 bottom()
                 right()
                 setFillParent(true)
                 space(3f)
+                addActor(object:Label("selected", skin) {
+                    override fun act(delta: Float) { // tbd only when dirty
+                        super.act(delta)
+                        setText("selected $selected")
+                        if ( selected >=0 && selected < model.current_idx ) {
+                            val b = model[selected]
+                            setText("pos: %d x %d\nage: %f\nenergy: %f".format(
+                                b.pos.x.roundToInt(), b.pos.y.roundToInt(),
+                                b.age, b.energy
+                            ))
+                        }
+                    }
+                })
 
                 addActor(object : Label("fps: ", skin) {
                     override fun act(delta: Float) {
@@ -74,19 +99,6 @@ class ReplicatorsScreen(private val batch: Batch?,
                         }
                     })
                 })
-                addActor(object:Label("selected", skin) {
-                    override fun act(delta: Float) { // tbd only when dirty
-                        super.act(delta)
-                        setText("selected $selected")
-                        if ( selected >=0 && selected < model.current_idx ) {
-                            val b = model[selected]
-                            setText("pos: %d x %d\nage: %f\nenergy: %f".format(
-                                b.pos.x.roundToInt(), b.pos.y.roundToInt(),
-                                b.age, b.energy
-                            ))
-                        }
-                    }
-                })
             })
         }
     }
@@ -113,6 +125,14 @@ class ReplicatorsScreen(private val batch: Batch?,
                 }
             })
             addListener( object: ClickListener() {
+                override fun touchDragged(event: InputEvent?, x: Float, y: Float, pointer: Int) {
+                    super.touchDragged(event, x, y, pointer)
+                    val cf = model.world.cf
+
+                    model.setField(
+                        x.roundToInt().coerceIn(0, cf.width-1),
+                        (model.world.cf.height - y).roundToInt().coerceIn(0, cf.height-1), GroundType.obstacle)
+                }
                 override fun clicked(event: InputEvent?, x: Float, y: Float) {
                     super.clicked(event, x, y)
                     assert( x >= 0 && x <= model.world.cf.width)
@@ -171,6 +191,7 @@ class ReplicatorsScreen(private val batch: Batch?,
         }
         println("Max bacts: ${model.max}")
         addRandom(10)
+        selected = 0
     }
 
     override fun hide() {

@@ -17,11 +17,24 @@ void enlight(KERNELS_ARGS) {
     int local_id = get_local_id(0);
     int group_size = get_local_size(0);
     int group = get_group_id(0);
-    barrier(CLK_LOCAL_MEM_FENCE);
+    float K = 1. - 1./(float)h;
+
     // get cell
-    float amount = TOP_LIGHT;
+    float amount = 1.;
     if ( group > 0 ) {
-        amount = 0.99 * light[index-h];
+        int cell_above_idx = index-w;
+        amount = K * light[cell_above_idx];
+        if ( cells[cell_above_idx] != 0 ) {
+            amount /= 2;
+        } else {
+
+        }
     }
+    barrier(CLK_LOCAL_MEM_FENCE);
     light[index] = amount;
+}
+
+__kernel
+void reindex(KERNELS_ARGS,
+    __global int* pos ) {
 }

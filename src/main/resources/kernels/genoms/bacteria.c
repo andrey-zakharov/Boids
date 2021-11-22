@@ -10,7 +10,7 @@
 #endif
 
 #ifndef energy_ps // photosynthesis
-    #define energy_ps 0.05
+    #define energy_ps 0.01
 #endif
 
 
@@ -45,11 +45,13 @@ void graver(KERNELS_ARGS) {
     int index = get_global_id(0);
     int x = pos[2*index];
     int y = pos[2*index+1];
+    int field_idx = x + y * w;
+    if (bacteria_field[field_idx] == -1) return;
 
     if (age[index] > 1.) {
         // die
-        ground[x + y * w] = food;
-        bacteria_field[x + y * w] = -1;
+        ground[field_idx] = food;
+        bacteria_field[field_idx] = -1;
         atomic_inc(&items_total[1]);
         return;
         // free index
@@ -57,29 +59,32 @@ void graver(KERNELS_ARGS) {
         age[index] += 1 / max_age;
     }
 
-    if ( light[index] > 0 ) {
+    if ( light[field_idx] > 0 ) {
         // 0.05 -- tbd from height
-        float a = energy_ps * light[index];
+        float a = energy_ps * light[field_idx];
         energy[index] += a;
-        light[index] -= a;
+        light[field_idx] -= a;
     }
 
     // growth
     if ( energy[index] >= 1. ) {
-        energy[index] -= 1.;
+    // spend some energy for division, other - divide equally
+
         //find next place
         for ( uint i = 0; i < sizeof(d)/sizeof(int2); i++ ) {
             int nx = x + d[i].x;
             int ny = y + d[i].y;
             if ( nx < 0 || nx > w || ny < 0 || ny > h ) continue;
+            int fld_idx = nx + ny*w;
 
-            int g = ground[nx + ny*w];
-            if ( g != obstacle && g != enemy && g != friend ) {
+            int g = ground[fld_idx];
+            int bi = bacteria_field[fld_idx];
+            if ( g != obstacle && bi == -1 ) {
                 //clone(index, x + d[i].x, y + d[i].y);
                 int idx = atomic_inc(&items_total[0]);
 
                 // indexes
-                bacteria_field[nx + ny * w] = idx;
+                bacteria_field[fld_idx] = idx;
                 pos[2*idx] = nx;
                 pos[2*idx+1] = ny;
                 for ( size_t i = 0; i < gen_len; i++ ) {
@@ -91,7 +96,9 @@ void graver(KERNELS_ARGS) {
                 }
                 current_command[idx] = 0;
                 age[idx] = 0.;
-                energy[idx] = 0.;
+                energy[idx] = 0.1;
+                energy[index] = 0.1;
+                printf("new %d / %d\n", idx, w * h);
                 break;
             }
         }
@@ -103,5 +110,9 @@ void gen_processor(KERNELS_ARGS) {
     int index = get_global_id(0);
     int x = pos[2*index];
     int y = pos[2*index+1];
+
+}
+
+__kernel void reindexer(KERNELS_ARGS) {
 
 }

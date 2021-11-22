@@ -31,11 +31,11 @@ void main() {
     float alpha = 0.7;
     ivec2 cd = ivec2(v_texCoords.x * tex_size.x, v_texCoords.y * tex_size.y);
     float d = length(cd - u_selected);
-    if (45 <= d && d < 50) {
+    if (0 <= d && d < 1) {
         out_color = vec4(0.5, 1.0, 0.5, 0.95);
         return;
     }
     //vec4 p = texture(u_energy, v_texCoords);
-    out_color = vec4(age, age, energy, alpha);
+    out_color = vec4(energy, energy, energy, alpha);
     //out_color = vec4(texture2D(u_age, ivec2(index, 0), 0).rgb, 1.0);
 }

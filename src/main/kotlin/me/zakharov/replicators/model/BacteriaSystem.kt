@@ -3,8 +3,10 @@ package me.zakharov.me.zakharov.replicators.model
 import com.badlogic.gdx.math.Vector2
 import me.apemanzilla.ktcl.cl10.createBuffer
 import me.apemanzilla.ktcl.cl10.enqueueNDRangeKernel
+import me.apemanzilla.ktcl.cl10.finish
 import me.apemanzilla.ktcl.cl10.setArg
 import me.zakharov.Const.INT_SIZE
+import me.zakharov.ants.model.Ground
 import me.zakharov.utils.*
 import java.nio.ByteBuffer
 import java.nio.FloatBuffer
@@ -72,7 +74,11 @@ class BacteriaSystem(val cf: BacteriaConf, val world: WorldSystem): IHeadlessAct
     // back index for looking up around
     // 0 - zero means empty
     // > 0 = index + 1
-    val field = createIntMatrix2d(world.cf.width, world.cf.height)
+    val field = createIntMatrix2d(world.cf.width, world.cf.height).apply {
+        forEach {x, y, _ ->
+            this[x, y] = -1
+        }
+    }
 
     val current_idx_buff by lazy { createShared<IntBuffer>(2).also {
         with(it.buff<IntBuffer>()) { put(0, 0); put(1, 0) }
@@ -83,23 +89,36 @@ class BacteriaSystem(val cf: BacteriaConf, val world: WorldSystem): IHeadlessAct
 
     var free_count: Int
         get() = current_idx_buff.buff<IntBuffer>().get(1)
-        set(v) { current_idx_buff.buff<IntBuffer>().put(0, v) }
+        set(v) { current_idx_buff.buff<IntBuffer>().put(1, v) }
 
+    fun setField(x: Int, y: Int, v: GroundType) {
+        world.cells[x, y] = v.ordinal.toByte()
+    }
 
     fun add(b: Bacteria) {
-        if ( current_idx >= max ) throw Error()
+        this[current_idx] = b
+        current_idx ++
+    }
+
+    fun isConsistent(i: Int): Boolean {
+        val x = pos.buff<IntBuffer>().get(2*i)
+        val y = pos.buff<IntBuffer>().get(2*i+1)
+        return field[x, y] == i + 1
+    }
+
+    operator fun set(i: Int, b: Bacteria) {
+        if ( i >= max ) throw Error()
         val x = b.pos.x.roundToInt()
         val y = b.pos.y.roundToInt()
 
-        pos.buff<IntBuffer>().put(2*current_idx, x)
-        pos.buff<IntBuffer>().put(2*current_idx+1, y)
-        gen._buff.position(current_idx * GEN_LENGTH)
+        pos.buff<IntBuffer>().put(2*i, x)
+        pos.buff<IntBuffer>().put(2*i+1, y)
+        gen._buff.position(i * GEN_LENGTH)
         gen._buff.put(b.gen)
-        current_command.buff<ByteBuffer>().put(current_idx, b.current_command)
-        age.buff<FloatBuffer>().put(current_idx, b.age)
-        energy.buff<FloatBuffer>().put(current_idx, b.energy)
-        field[x, y] = current_idx + 1
-        current_idx ++
+        current_command.buff<ByteBuffer>().put(i, b.current_command)
+        age.buff<FloatBuffer>().put(i, b.age)
+        energy.buff<FloatBuffer>().put(i, b.energy)
+        field[x, y] = i + 1
     }
 
     operator fun get(i: Int): Bacteria {
@@ -111,6 +130,10 @@ class BacteriaSystem(val cf: BacteriaConf, val world: WorldSystem): IHeadlessAct
             ),
             age = age.buff<FloatBuffer>().get(i)
         )
+    }
+
+    fun copy(f: Int, t: Int) {
+        this[t] = this[f]
     }
 
     val kernelSource by lazy {
@@ -154,25 +177,43 @@ class BacteriaSystem(val cf: BacteriaConf, val world: WorldSystem): IHeadlessAct
             }
 
             with(cmd) {
+                enqueueWrite(current_idx_buff)
                 enqueueWrite(pos)
-                //enqueueWrite(gen)
+                enqueueWrite(gen)
+                enqueueWrite(current_command)
                 enqueueWrite(age)
                 enqueueWrite(energy)
                 enqueueWrite(fieldCl)
                 enqueueWrite(ground[0])
                 enqueueWrite(ground[3])
                 enqueueNDRangeKernel(kernel, current_idx.toLong(), 0)
+                finish()
                 enqueueRead(ground[3])
                 enqueueRead(ground[0])
                 enqueueRead(fieldCl)
                 enqueueRead(pos)
                 enqueueRead(age)
+                enqueueRead(current_command)
                 enqueueRead(gen)
                 enqueueRead(energy)
                 enqueueRead(current_command)
+                enqueueRead(current_idx_buff)
             }
 
-            println(free_count);
+            while( free_count > 0 ) {
+                var i = 0
+                while ( i < current_idx) {
+                    if (!isConsistent(i)) {
+                        println("moving $current_idx to $i")
+                        copy(current_idx - 1, i)
+                        free_count --
+                        current_idx --
+                    }
+
+                    i++
+                }
+            }
+
             //age._buff.slice().also { it.limit(current_idx * INT_SIZE) }.slice().print()
                 //println(age.buff<FloatBuffer>()[0])
         }
@@ -181,6 +222,9 @@ class BacteriaSystem(val cf: BacteriaConf, val world: WorldSystem): IHeadlessAct
     val gen_processor by lazy { object: Kernel(
         "gen_processor", kernelSource, kernelDefines = kernelDefines
     ) {
+        init {
+            arrayOf( pos, gen, current_idx_buff, current_command, age, energy ).map { it.attach(ctx) }
+        }
         override fun act(delta: Float) {
             super.act(delta)
             with(kernel) {
