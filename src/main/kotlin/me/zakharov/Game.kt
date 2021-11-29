@@ -113,10 +113,10 @@ class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
         Gdx.input.inputProcessor = inputBus
         KtxAsync.initiate()
         val durMs = kotlin.system.measureTimeMillis {
-            addScreen(screen1)
+            //addScreen(screen1)
             addScreen(ReplicatorsScreen(batch, uiSkin))
-            addScreen(SimpleGameScreen::class.java, screen2)
-            addScreen(SpaceScreen(this, ctx, cmd))
+            //addScreen(SimpleGameScreen::class.java, screen2)
+            //addScreen(SpaceScreen(this, ctx, cmd))
 
 //            setScreen<AntsScreen>()
             setScreen<ReplicatorsScreen>()

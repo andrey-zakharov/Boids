@@ -26,7 +26,7 @@ open class Kernel(val kernelName: String,
     }
     internal val kernel by lazy {
         ctx.createProgramWithSource(kernelSource).also {
-            it.build(kernelDefines.map { "-D$it" }.joinToString(" "))
+            it.build(kernelDefines.map { "-D$it" }.joinToString(" ") + " -cl-std=CL2.0 ")
         }
             .createKernel(kernelName).apply(kernelInitArgs)
     }

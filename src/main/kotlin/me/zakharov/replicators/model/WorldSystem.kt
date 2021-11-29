@@ -4,6 +4,8 @@ import me.apemanzilla.ktcl.cl10.enqueueNDRangeKernel
 import me.apemanzilla.ktcl.cl10.finish
 import me.apemanzilla.ktcl.cl10.setArg
 import me.zakharov.utils.*
+import java.lang.Integer.min
+
 // PARAMS
 data class WorldConf(
     val width: Int = 1000,
@@ -18,8 +20,9 @@ class WorldSystem(val cf: WorldConf) {
         val minerals = createFloatMatrix2d(cf.width, cf.height)
         val moisture = createFloatMatrix2d(cf.width, cf.height)
         val cells = createByteMatrix2d(cf.width, cf.height).apply {
-            for (x in 0 until 15) {
-                this[x, 10] = GroundType.obstacle.ordinal.toByte()
+            val r = min(10, cf.height-1)
+                for (x in 0 until min(15, cf.width)) {
+                this[x, r] = GroundType.obstacle.ordinal.toByte()
             }
         }
 /*        override fun get(x: Int, y: Int): Cell {

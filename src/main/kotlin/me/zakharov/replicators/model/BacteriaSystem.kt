@@ -11,6 +11,7 @@ import me.zakharov.utils.*
 import java.nio.ByteBuffer
 import java.nio.FloatBuffer
 import java.nio.IntBuffer
+import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 interface IWorld {
@@ -80,8 +81,8 @@ class BacteriaSystem(val cf: BacteriaConf, val world: WorldSystem): IHeadlessAct
         }
     }
 
-    val current_idx_buff by lazy { createShared<IntBuffer>(2).also {
-        with(it.buff<IntBuffer>()) { put(0, 0); put(1, 0) }
+    val current_idx_buff by lazy { createShared<IntBuffer>(3).also {
+        with(it.buff<IntBuffer>()) { put(0, 0); put(1, 0); put(2, 0) }
     } }
     var current_idx: Int
         get() = current_idx_buff.buff<IntBuffer>().get(0)
@@ -90,6 +91,10 @@ class BacteriaSystem(val cf: BacteriaConf, val world: WorldSystem): IHeadlessAct
     var free_count: Int
         get() = current_idx_buff.buff<IntBuffer>().get(1)
         set(v) { current_idx_buff.buff<IntBuffer>().put(1, v) }
+
+    var able_count: Int // number of bacterias with energy capable to growth
+        get() = current_idx_buff.buff<IntBuffer>().get(2)
+        set(v) { current_idx_buff.buff<IntBuffer>().put(2, v) }
 
     fun setField(x: Int, y: Int, v: GroundType) {
         world.cells[x, y] = v.ordinal.toByte()
@@ -199,70 +204,88 @@ class BacteriaSystem(val cf: BacteriaConf, val world: WorldSystem): IHeadlessAct
                 enqueueRead(current_command)
                 enqueueRead(current_idx_buff)
             }
-
-            while( free_count > 0 ) {
-                var i = 0
-                while ( i < current_idx) {
-                    if (!isConsistent(i)) {
-                        println("moving $current_idx to $i")
-                        copy(current_idx - 1, i)
-                        free_count --
-                        current_idx --
-                    }
-
-                    i++
-                }
-            }
-
-            //age._buff.slice().also { it.limit(current_idx * INT_SIZE) }.slice().print()
-                //println(age.buff<FloatBuffer>()[0])
         }
     } }
 
     val gen_processor by lazy { object: Kernel(
         "gen_processor", kernelSource, kernelDefines = kernelDefines
     ) {
+        val cells = longArrayOf(ceil(world.cf.width / 3f).toLong(), ceil(world.cf.height / 3f).toLong())
+        val globalSizes =  longArrayOf(cells[0] * 3, cells[1] * 3)
+        val globalSize = longArrayOf(globalSizes[0] * globalSizes[1])
+        val workSize = longArrayOf(cells[0] * cells[1])
         init {
             arrayOf( pos, gen, current_idx_buff, current_command, age, energy ).map { it.attach(ctx) }
+            println("groups: ${cells.joinToString(", ")}")
+            println("gsizes: ${globalSizes.joinToString(", ")}")
+            println("global: ${globalSize.joinToString(", ")}")
+            println("worksize: ${workSize.joinToString(", ")}")
         }
         override fun act(delta: Float) {
+
+
             super.act(delta)
+            if ( current_idx == 0 ) return;
+            var a = 0
             with(kernel) {
-
-                if ( current_idx == 0 ) return;
                 var a = 0
-                with(kernel) {
-                    var a = 0
-                    setArg(a++, time)
-                    setArg(a++, delta)
-                    setArg(a++, world.cf.width)
-                    setArg(a++, world.cf.height)
-                    setArg(a++, current_idx_buff.remoteBuff)
-                    setArg(a++, pos.remoteBuff)
-                    setArg(a++, gen.remoteBuff)
-                    setArg(a++, current_command.remoteBuff)
-                    setArg(a++, age.remoteBuff)
-                    setArg(a++, energy.remoteBuff)
-                    setArg(a++, fieldCl.remoteBuff)
-                    setArg(a++, ground[0].remoteBuff)
-                    setArg(a++, ground[1].remoteBuff)
-                    setArg(a++, ground[2].remoteBuff)
-                    setArg(a++, ground[3].remoteBuff)
+                setArg(a++, time) // 0
+                setArg(a++, delta)
+                setArg(a++, world.cf.width)
+                setArg(a++, world.cf.height)
+                setArg(a++, current_idx_buff.remoteBuff) // 4
+                setArg(a++, pos.remoteBuff)
+                setArg(a++, gen.remoteBuff)
+                setArg(a++, current_command.remoteBuff)
+                setArg(a++, age.remoteBuff)
+                setArg(a++, energy.remoteBuff) // 9
+                setArg(a++, fieldCl.remoteBuff)
+                setArg(a++, ground[0].remoteBuff)
+                setArg(a++, ground[1].remoteBuff)
+                setArg(a++, ground[2].remoteBuff)
+                setArg(a++, ground[3].remoteBuff) // 15
+            }
+
+            with(cmd) {
+                enqueueWrite(current_idx_buff)
+                enqueueWrite(pos)
+                enqueueWrite(gen)
+                enqueueWrite(current_command)
+                enqueueWrite(age)
+                enqueueWrite(energy)
+                enqueueWrite(fieldCl)
+                enqueueWrite(ground[0])
+                enqueueWrite(ground[3])
+
+                /// workgroups by
+                /// +-+-+-+-+-+-+
+                /// |1|2|3|1|2|3|
+                /// +-+-+-+-+-+-+
+                /// |4|5|6|4|5|6|
+                /// +-+-+-+-+-+-+
+                /// |7|8|9|7|8|9|
+                /// +-+-+-+-+-+-+
+                /// to remove race for next step cell
+                for( dy in 0 until 3) {
+                    for (dx in 0 until 3) {
+                        kernel.setArg(15, dx)
+                        kernel.setArg(16, dy)
+                        enqueueNDRangeKernel(kernel, globalSize = globalSize[0])
+                        finish()
+                    }
                 }
 
-                with(cmd) {
-                    //enqueueWrite(pos)
-                    //enqueueWrite(gen)
-                    enqueueWrite(age)
-                    enqueueWrite(fieldCl)
-                    enqueueWrite(ground[3])
-                    enqueueWrite(current_idx_buff)
-                    enqueueNDRangeKernel(kernel, current_idx.toLong(), 0)
-                    enqueueRead(ground[3])
-                    enqueueRead(fieldCl)
-                    enqueueRead(age)
-                    enqueueRead(current_idx_buff)
-                }
+
+                enqueueRead(ground[3])
+                enqueueRead(ground[0])
+                enqueueRead(fieldCl)
+                enqueueRead(pos)
+                enqueueRead(age)
+                enqueueRead(current_command)
+                enqueueRead(gen)
+                enqueueRead(energy)
+                enqueueRead(current_command)
+                enqueueRead(current_idx_buff)
             }
 
         }
@@ -271,6 +294,26 @@ class BacteriaSystem(val cf: BacteriaConf, val world: WorldSystem): IHeadlessAct
     override fun act(delta: Float) {
         world.act(delta)
         graver.act(delta)
+
+        reshake()
+
         gen_processor.act(delta)
     }
+
+    private fun reshake() {
+        while( free_count > 0 ) {
+            var i = 0
+            while ( i < current_idx) {
+                if (!isConsistent(i)) {
+                    //println("moving $current_idx to $i")
+                    copy(current_idx - 1, i)
+                    free_count --
+                    current_idx --
+                }
+
+                i++
+            }
+        }
+    }
+
 }

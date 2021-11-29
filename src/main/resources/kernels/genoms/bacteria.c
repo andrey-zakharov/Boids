@@ -65,54 +65,48 @@ void graver(KERNELS_ARGS) {
         energy[index] += a;
         light[field_idx] -= a;
     }
-
-    // growth
-    if ( energy[index] >= 1. ) {
-    // spend some energy for division, other - divide equally
-
-        //find next place
-        for ( uint i = 0; i < sizeof(d)/sizeof(int2); i++ ) {
-            int nx = x + d[i].x;
-            int ny = y + d[i].y;
-            if ( nx < 0 || nx > w || ny < 0 || ny > h ) continue;
-            int fld_idx = nx + ny*w;
-
-            int g = ground[fld_idx];
-            int bi = bacteria_field[fld_idx];
-            if ( g != obstacle && bi == -1 ) {
-                //clone(index, x + d[i].x, y + d[i].y);
-                int idx = atomic_inc(&items_total[0]);
-
-                // indexes
-                bacteria_field[fld_idx] = idx;
-                pos[2*idx] = nx;
-                pos[2*idx+1] = ny;
-                for ( size_t i = 0; i < gen_len; i++ ) {
-                    if ( random(idx + time) > 0.99 ) {
-                        gen[gen_len * idx + i] = (random(idx + time+1.) * COMMAND_COUNT);
-                    } else {
-                        gen[gen_len * idx + i] = gen[gen_len * index + i];
-                    }
-                }
-                current_command[idx] = 0;
-                age[idx] = 0.;
-                energy[idx] = 0.1;
-                energy[index] = 0.1;
-                printf("new %d / %d\n", idx, w * h);
-                break;
-            }
-        }
-    }
 }
 
 __kernel
-void gen_processor(KERNELS_ARGS) {
-    int index = get_global_id(0);
-    int x = pos[2*index];
-    int y = pos[2*index+1];
+void gen_processor(KERNELS_ARGS, int dx, int dy) {
+    int roww = ceil(w / 3.);
+    int y = (get_global_id(0) / roww) * 3 + dy;
+    int x = (get_global_id(0) % roww) * 3 + dx;
+    if ( x >= w || y >= h ) return;
+    int field_idx = x + y * w;
+    if (bacteria_field[field_idx] == -1) return;
+    int index = bacteria_field[field_idx];
+    if ( energy[index] < 1. ) return;
 
-}
+    // spend some energy for division, other - divide equally
+    //find next place
+    for ( uint i = 0; i < sizeof(d)/sizeof(int2); i++ ) {
+        int nx = x + d[i].x;
+        int ny = y + d[i].y;
+        if ( nx < 0 || nx >= w || ny < 0 || ny >= h ) continue;
+        int fld_idx = nx + ny*w;
 
-__kernel void reindexer(KERNELS_ARGS) {
+        if ( ground[fld_idx] != obstacle && bacteria_field[fld_idx] == -1 ) {
+            //clone(index, x + d[i].x, y + d[i].y);
+            int idx = atomic_inc(&items_total[0]);
 
+            // indexes
+            bacteria_field[fld_idx] = idx;
+            pos[2*idx] = nx;
+            pos[2*idx+1] = ny;
+            for ( size_t i = 0; i < gen_len; i++ ) {
+                if ( random(idx + time) > 0.99 ) {
+                    gen[gen_len * idx + i] = (random(idx + time+1.) * COMMAND_COUNT);
+                } else {
+                    gen[gen_len * idx + i] = gen[gen_len * index + i];
+                }
+            }
+            current_command[idx] = 0;
+            age[idx] = 0.;
+            energy[idx] = 0.1;
+            energy[index] = 0.1;
+            //printf("new %d / %d\n", idx, w * h);
+            break;
+        }
+    }
 }

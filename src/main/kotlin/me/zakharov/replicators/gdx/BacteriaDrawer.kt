@@ -17,13 +17,12 @@ import java.nio.IntBuffer
 
 class BacteriaDrawer(val model: BacteriaSystem) : Actor() {
     var selected: Int = -1
-        set(v: Int) {
+        set(v) {
             field = v
             if ( v >= 0 ) {
                 val x = model.pos.buff<IntBuffer>()[2 * v]
                 val y = model.pos.buff<IntBuffer>()[2 * v + 1]
-                println("#$v p: $x $y")
-                shaderProgram.safeSetUniform("u_selected", v)
+                println("selected #$v p: $x $y")
             }
         }
 
@@ -84,6 +83,7 @@ class BacteriaDrawer(val model: BacteriaSystem) : Actor() {
             it.shader.safeSetUniform("u_texture", 0)
 
             it.shader.safeSetUniform("time", time)
+
 
             it.shader.safeSetUniform("u_selected", uniformSelectedX, uniformSelectedY)
             it.shader.safeSetUniform("u_hovered", hovered.x, hovered.y)
