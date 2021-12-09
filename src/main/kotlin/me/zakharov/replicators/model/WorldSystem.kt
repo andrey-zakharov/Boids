@@ -10,7 +10,9 @@ import java.lang.Integer.min
 data class WorldConf(
     val width: Int = 1000,
     val height: Int = 1000,
-)
+) {
+    val totalCells by lazy { width * height }
+}
 
 class WorldSystem(val cf: WorldConf) {
 

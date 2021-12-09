@@ -10,7 +10,7 @@
 #endif
 
 #ifndef energy_ps // photosynthesis
-    #define energy_ps 0.01
+    #define energy_ps 0.025
 #endif
 
 
@@ -24,7 +24,7 @@ __constant float2 d[4] = { (float2)(0, -1.),
                          int h,\
                          __global int*     items_total,\
                          __global int*     pos,\
-                         __global float*     gen,\
+                         __global uchar*     gen,\
                          __global int*       current_command,\
                          __global float*     age,\
                          __global float*     energy,\
@@ -46,13 +46,18 @@ void graver(KERNELS_ARGS) {
     int x = pos[2*index];
     int y = pos[2*index+1];
     int field_idx = x + y * w;
+
     if (bacteria_field[field_idx] == -1) return;
+    if ( bacteria_field[field_idx] != index ) {
+        printf("%0.3f broken %d - %d %d field = %d\n", time, index, x, y, bacteria_field[field_idx]);
+    }
 
     if (age[index] > 1.) {
         // die
-        ground[field_idx] = food;
         bacteria_field[field_idx] = -1;
-        atomic_inc(&items_total[1]);
+        ground[field_idx] = food;
+        //printf("%0.3f died: %d (%d x %d) %0.3f\n", time, index, x, y, age[index]);
+        //atomic_inc(&items_total[1]);
         return;
         // free index
     } else {
@@ -64,6 +69,11 @@ void graver(KERNELS_ARGS) {
         float a = energy_ps * light[field_idx];
         energy[index] += a;
         light[field_idx] -= a;
+    }
+
+    if ( ground[field_idx] == food /* food */ ) {
+        energy[index] += 0.5;
+        ground[field_idx] = empty;
     }
 }
 
@@ -91,7 +101,9 @@ void gen_processor(KERNELS_ARGS, int dx, int dy) {
             int idx = atomic_inc(&items_total[0]);
 
             // indexes
+
             bacteria_field[fld_idx] = idx;
+
             pos[2*idx] = nx;
             pos[2*idx+1] = ny;
             for ( size_t i = 0; i < gen_len; i++ ) {
@@ -101,11 +113,18 @@ void gen_processor(KERNELS_ARGS, int dx, int dy) {
                     gen[gen_len * idx + i] = gen[gen_len * index + i];
                 }
             }
+                                   /* for( uint y = 0; y < h; y++ ) {
+                                        for( uint x = 0; x < w; x++ ) {
+                                            printf("%d\t", bacteria_field[x + y * w]);
+                                        }
+                                        printf("\n");
+                                    }*/
             current_command[idx] = 0;
             age[idx] = 0.;
             energy[idx] = 0.1;
             energy[index] = 0.1;
-            //printf("new %d / %d\n", idx, w * h);
+            //printf("%0.3f new %d ->\t%d / %d\t%d x %d ->\t%d x %d\n", time, index, idx, w * h, x, y, nx, ny);
+
             break;
         }
     }

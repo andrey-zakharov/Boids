@@ -54,7 +54,7 @@ class AntsTest {
             this[0, 0] = GroundType.Nest
         }
         val pheromones = Pheromones(ctx, cmd, 3, 3)
-        pheromones.m[2, 0] = PherType.food_trail.v
+        pheromones.m[2, 0, 0] = PherType.food_trail.v
         val ants = Ants(conf3x3debug, ctx, cmd, ground, pheromones)
 
 //        ants.ejectAntsFromNest()
@@ -67,7 +67,7 @@ class AntsTest {
         // simple step test
         ants.act(1f)
 
-        assertTrue( pheromones.m[1, 0] != PherType.none.v, "ant should leaves trail")
+        assertTrue( pheromones.m[1, 0, 0] != PherType.none.v, "ant should leaves trail")
         val afs = ants.snapshot()
         assertEquals(Vector2(2f, 0f), afs[0].pos)
         assertEquals(Vector2.X, afs[0].vel.normalized())// not true

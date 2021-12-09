@@ -1,8 +1,8 @@
 package me.zakharov.me.zakharov.replicators
 
 import com.badlogic.gdx.Gdx
+import com.badlogic.gdx.Input
 import com.badlogic.gdx.InputMultiplexer
-import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.g2d.Batch
 import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.scenes.scene2d.Actor
@@ -15,10 +15,12 @@ import com.badlogic.gdx.scenes.scene2d.utils.ClickListener
 import com.badlogic.gdx.utils.viewport.FitViewport
 import com.badlogic.gdx.utils.viewport.ScreenViewport
 import ktx.app.KtxScreen
-import me.zakharov.me.zakharov.ants.AntsScreen
 import me.zakharov.me.zakharov.replicators.gdx.BacteriaDrawer
 import me.zakharov.me.zakharov.replicators.gdx.WorldDrawer
 import me.zakharov.me.zakharov.replicators.model.*
+import java.io.ByteArrayOutputStream
+import java.io.PrintStream
+import kotlin.math.floor
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
@@ -29,10 +31,17 @@ class ReplicatorsScreen(private val batch: Batch?,
 
     private val model by lazy {
         BacteriaSystem(
-            BacteriaConf(maxAge = 10000), WorldSystem(WorldConf(width = 50, height = 50))
+            BacteriaConf(maxAge = 1000), WorldSystem(WorldConf(width = 100, height = 100))
         )
     }
-    private var selected: Int = -1
+    private var selected: Vector2 = Vector2(Vector2.Zero)
+        set(v) {
+            if (field != v ) {
+                field = v
+                bacteriaDrawer.uniformSelectedX = v.x.toInt()
+                bacteriaDrawer.uniformSelectedY = v.y.toInt()
+            }
+        }
 
     private val ui by lazy {
         val random = Random(System.currentTimeMillis())
@@ -59,14 +68,31 @@ class ReplicatorsScreen(private val batch: Batch?,
                 addActor(object:Label("selected", skin) {
                     override fun act(delta: Float) { // tbd only when dirty
                         super.act(delta)
-                        setText("selected $selected")
-                        if ( selected >=0 && selected < model.current_idx ) {
-                            val b = model[selected]
-                            setText("pos: %d x %d\nage: %f\nenergy: %f".format(
-                                b.pos.x.roundToInt(), b.pos.y.roundToInt(),
-                                b.age, b.energy
-                            ))
+                        val out = ByteArrayOutputStream()
+                        with(PrintStream(out)) {
+                            println("selected $selected")
+                            val x = selected.x.toInt()
+                            val y = selected.y.toInt()
+                            val l = model.world.light[x, y]
+                            val ms = model.world.moisture[x, y]
+                            val mn = model.world.minerals[x, y]
+                            val c = GroundType.values()[model.world.cells[x, y].toInt()]
+                            println("cell light: %.3f".format(l))
+                            println("cell type: $c")
+                            println("cell moisture: $ms")
+                            println("cell minerals: $mn")
+
+                            val bidx = model.field[x, y]
+                            if ( bidx >=0 ) {
+                                val b = model[bidx]
+                                println("#%d".format(bidx))
+                                println("pos: %d x %d".format(b.pos.x.roundToInt(), b.pos.y.roundToInt()))
+                                println("age: %.0f%%".format(b.age * 100))
+                                println("energy: %.0f%%".format(b.energy * 100))
+                                println("current command: %d".format(b.current_command))
+                            }
                         }
+                        setText(out.toString())
                     }
                 })
 
@@ -100,6 +126,19 @@ class ReplicatorsScreen(private val batch: Batch?,
                     })
                 })
             })
+
+            addListener {
+                if (it !is InputEvent || it.type != InputEvent.Type.keyTyped) return@addListener false
+                when(it.keyCode) {
+                    Input.Keys.P -> { model.printDebug(); true }
+                    Input.Keys.LEFT -> { selected.x = (selected.x - 1).coerceIn(0f, model.world.cf.width.toFloat()); true }
+                    Input.Keys.RIGHT -> { selected.x = (selected.x + 1).coerceIn(0f, model.world.cf.width.toFloat()); true }
+                    Input.Keys.UP -> { selected.y = (selected.y - 1).coerceIn(0f, model.world.cf.height.toFloat()); true }
+                    Input.Keys.DOWN -> { selected.y = (selected.y + 1).coerceIn(0f, model.world.cf.height.toFloat()); true }
+                    else -> false
+                }
+            }
+
         }
     }
 
@@ -110,11 +149,6 @@ class ReplicatorsScreen(private val batch: Batch?,
             addActor(WorldDrawer(model.world))
             addActor(bacteriaDrawer)
             addListener( object: InputListener() {
-                override fun touchUp(event: InputEvent?, x: Float, y: Float, pointer: Int, button: Int) {
-                    super.touchUp(event, x, y, pointer, button)
-                    println("t $x, $y")
-                }
-
                 override fun mouseMoved(event: InputEvent?, x: Float, y: Float): Boolean {
                     bacteriaDrawer.hovered.set(
                         x / model.world.cf.width,
@@ -135,13 +169,9 @@ class ReplicatorsScreen(private val batch: Batch?,
                 }
                 override fun clicked(event: InputEvent?, x: Float, y: Float) {
                     super.clicked(event, x, y)
-                    assert( x >= 0 && x <= model.world.cf.width)
-                    assert( y >= 0 && y <= model.world.cf.height)
-                    val f = model.field[x.roundToInt(), (model.world.cf.height - y).roundToInt()]
-                    if ( f > 0 ) {
-                        val index = f - 1
-                        onSelect(index)
-                    }
+                    val cx = x.coerceIn(0f, model.world.cf.width - 1f)
+                    val cy = (model.world.cf.height - y).coerceIn( 0f, model.world.cf.height - 1f)
+                    selected = Vector2(floor(cx), floor(cy))
                 }
             })
         }
@@ -155,16 +185,11 @@ class ReplicatorsScreen(private val batch: Batch?,
             model.add(
                 Bacteria(
                     pos = Vector2(x, y),
-                    age = random.nextFloat(),
+                    age = 0f,
                     energy = random.nextFloat()
                 )
             )
         }
-    }
-    
-    fun onSelect(idx: Int) {
-        bacteriaDrawer.selected = idx
-        selected = idx
     }
 
     override fun render(delta: Float) {
@@ -191,7 +216,6 @@ class ReplicatorsScreen(private val batch: Batch?,
         }
         println("Max bacts: ${model.max}")
         addRandom(10)
-        selected = 0
     }
 
     override fun hide() {

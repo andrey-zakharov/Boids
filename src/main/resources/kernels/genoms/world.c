@@ -25,7 +25,7 @@ void enlight(KERNELS_ARGS) {
         int cell_above_idx = index-w;
         amount = K * light[cell_above_idx];
         if ( cells[cell_above_idx] != 0 ) {
-            amount /= 2;
+            amount /= 1.5;
         } else {
 
         }

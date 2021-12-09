@@ -8,6 +8,7 @@ plugins {
     // Apply the application plugin to add support for building a CLI application.
     application
     kotlin("jvm") version "1.5.10"
+    id("com.stehno.natives") version "0.3.1"
 }
 
 repositories {

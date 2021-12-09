@@ -16,25 +16,11 @@ import java.nio.IntBuffer
 
 
 class BacteriaDrawer(val model: BacteriaSystem) : Actor() {
-    var selected: Int = -1
-        set(v) {
-            field = v
-            if ( v >= 0 ) {
-                val x = model.pos.buff<IntBuffer>()[2 * v]
-                val y = model.pos.buff<IntBuffer>()[2 * v + 1]
-                println("selected #$v p: $x $y")
-            }
-        }
 
-    val uniformSelectedX: Int
-        get() = if ( selected >= 0 ) model.pos.buff<IntBuffer>()[2 * selected]
-            else Int.MIN_VALUE
+    var uniformSelectedX: Int = 0
+    var uniformSelectedY: Int = 0
 
-    val uniformSelectedY: Int
-        get() = if ( selected >= 0 ) model.pos.buff<IntBuffer>()[2 * selected + 1]
-            else Int.MIN_VALUE
-
-    var hovered = Vector2.Zero
+    var hovered = Vector2(Vector2.Zero)
     private val data by lazy { arrayOf(
         IntTextureData(model.world.cf.width, model.world.cf.height, model.field.buff), // bacteria_field
         FloatTextureData(model.world.cf.width, model.world.cf.height, model.age._buff), // age
