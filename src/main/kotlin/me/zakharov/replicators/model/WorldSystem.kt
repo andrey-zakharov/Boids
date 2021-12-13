@@ -23,8 +23,11 @@ class WorldSystem(val cf: WorldConf) {
         val moisture = createFloatMatrix2d(cf.width, cf.height)
         val cells = createByteMatrix2d(cf.width, cf.height).apply {
             val r = min(10, cf.height-1)
-                for (x in 0 until min(15, cf.width)) {
+            for (x in 0 until min(15, cf.width)) {
                 this[x, r] = GroundType.obstacle.ordinal.toByte()
+            }
+            for(i in 0 until min(cf.width, cf.height)) {
+                this[i, i] = GroundType.obstacle.ordinal.toByte()
             }
         }
 /*        override fun get(x: Int, y: Int): Cell {

@@ -315,6 +315,7 @@ class BacteriaSystem(val cf: BacteriaConf, val world: WorldSystem): IHeadlessAct
     }
 
     private fun checkIntegrity() {
+        assert( world.cells[0, 10] == GroundType.obstacle.ordinal.toByte() )
         assert(current_idx >= 0 && current_idx <= world.cf.totalCells) { "expected $current_idx not negative and less ${world.cf.totalCells}"}
         val posarray = pos.buff<IntBuffer>()
         for ( i in 0 until current_idx ) {

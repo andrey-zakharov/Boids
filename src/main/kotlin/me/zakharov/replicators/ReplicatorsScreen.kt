@@ -31,7 +31,7 @@ class ReplicatorsScreen(private val batch: Batch?,
 
     private val model by lazy {
         BacteriaSystem(
-            BacteriaConf(maxAge = 1000), WorldSystem(WorldConf(width = 100, height = 100))
+            BacteriaConf(maxAge = 1000), WorldSystem(WorldConf(width = 150, height = 150))
         )
     }
     private var selected: Vector2 = Vector2(Vector2.Zero)
@@ -42,6 +42,9 @@ class ReplicatorsScreen(private val batch: Batch?,
                 bacteriaDrawer.uniformSelectedY = v.y.toInt()
             }
         }
+
+    private var pause: Boolean = false
+    private var step: Boolean = false
 
     private val ui by lazy {
         val random = Random(System.currentTimeMillis())
@@ -90,6 +93,13 @@ class ReplicatorsScreen(private val batch: Batch?,
                                 println("age: %.0f%%".format(b.age * 100))
                                 println("energy: %.0f%%".format(b.energy * 100))
                                 println("current command: %d".format(b.current_command))
+                                for( i in 0 until model.cf.genLen ) {
+                                    print("${b.gen[i]} ")
+                                    if ( i > 0 && b.gen[i-1] == 0.toByte() && b.gen[i] == 0.toByte() ) {
+                                        break;
+                                    }
+                                    if ( (i+1) % 10 == 0 ) println()
+                                }
                             }
                         }
                         setText(out.toString())
@@ -128,13 +138,15 @@ class ReplicatorsScreen(private val batch: Batch?,
             })
 
             addListener {
-                if (it !is InputEvent || it.type != InputEvent.Type.keyTyped) return@addListener false
+                if (it !is InputEvent || it.type != InputEvent.Type.keyUp) return@addListener false
                 when(it.keyCode) {
                     Input.Keys.P -> { model.printDebug(); true }
-                    Input.Keys.LEFT -> { selected.x = (selected.x - 1).coerceIn(0f, model.world.cf.width.toFloat()); true }
-                    Input.Keys.RIGHT -> { selected.x = (selected.x + 1).coerceIn(0f, model.world.cf.width.toFloat()); true }
-                    Input.Keys.UP -> { selected.y = (selected.y - 1).coerceIn(0f, model.world.cf.height.toFloat()); true }
-                    Input.Keys.DOWN -> { selected.y = (selected.y + 1).coerceIn(0f, model.world.cf.height.toFloat()); true }
+                    Input.Keys.LEFT -> { selected = Vector2((selected.x - 1).coerceIn(0f, model.world.cf.width.toFloat()), selected.y); true }
+                    Input.Keys.RIGHT -> { selected = Vector2((selected.x + 1).coerceIn(0f, model.world.cf.width.toFloat()), selected.y); true }
+                    Input.Keys.UP -> { selected = Vector2(selected.x, (selected.y - 1).coerceIn(0f, model.world.cf.height.toFloat())); true }
+                    Input.Keys.DOWN -> { selected = Vector2(selected.x, (selected.y + 1).coerceIn(0f, model.world.cf.height.toFloat())); true }
+                    Input.Keys.SPACE -> { pause = !pause; true }
+                    Input.Keys.ENTER -> { pause = true; step = true; true }
                     else -> false
                 }
             }
@@ -193,7 +205,10 @@ class ReplicatorsScreen(private val batch: Batch?,
     }
 
     override fun render(delta: Float) {
-        model.act(delta)
+        if ( !pause || step ) {
+            model.act(delta)
+            step = false
+        }
         arrayOf(scene, ui).forEach { s ->
             s.act(delta)
             s.viewport.apply(s == ui)

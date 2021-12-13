@@ -36,6 +36,6 @@ void main() {
         return;
     }
     //vec4 p = texture(u_energy, v_texCoords);
-    out_color = vec4(age, age, energy, alpha);
+    out_color = vec4(1.0 - age, age, energy, alpha);
     //out_color = vec4(texture2D(u_age, ivec2(index, 0), 0).rgb, 1.0);
 }

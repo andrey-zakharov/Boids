@@ -25,7 +25,7 @@ __constant float2 d[4] = { (float2)(0, -1.),
                          __global int*     items_total,\
                          __global int*     pos,\
                          __global uchar*     gen,\
-                         __global int*       current_command,\
+                         __global uchar*       current_command,\
                          __global float*     age,\
                          __global float*     energy,\
                          __global int*       bacteria_field,\
@@ -55,7 +55,9 @@ void graver(KERNELS_ARGS) {
     if (age[index] > 1.) {
         // die
         bacteria_field[field_idx] = -1;
-        ground[field_idx] = food;
+        if ( ground[field_idx] == empty ) {
+            ground[field_idx] = food;
+        }
         //printf("%0.3f died: %d (%d x %d) %0.3f\n", time, index, x, y, age[index]);
         //atomic_inc(&items_total[1]);
         return;
@@ -86,46 +88,97 @@ void gen_processor(KERNELS_ARGS, int dx, int dy) {
     int field_idx = x + y * w;
     if (bacteria_field[field_idx] == -1) return;
     int index = bacteria_field[field_idx];
-    if ( energy[index] < 1. ) return;
+    if ( energy[index] >= 1. ) {
 
-    // spend some energy for division, other - divide equally
-    //find next place
-    for ( uint i = 0; i < sizeof(d)/sizeof(int2); i++ ) {
-        int nx = x + d[i].x;
-        int ny = y + d[i].y;
-        if ( nx < 0 || nx >= w || ny < 0 || ny >= h ) continue;
-        int fld_idx = nx + ny*w;
+        //printf("%d", ground[0 + 10*w]);
+        // spend some energy for division, other - divide equally
+        //find next place
+        for ( uint i = 0; i < sizeof(d)/sizeof(int2); i++ ) {
+            int nx = x + d[i].x;
+            int ny = y + d[i].y;
+            if ( nx < 0 || nx >= w || ny < 0 || ny >= h ) continue;
+            int fld_idx = nx + ny*w;
 
-        if ( ground[fld_idx] != obstacle && bacteria_field[fld_idx] == -1 ) {
-            //clone(index, x + d[i].x, y + d[i].y);
-            int idx = atomic_inc(&items_total[0]);
+            if ( ground[fld_idx] != obstacle && bacteria_field[fld_idx] == -1 ) {
+                //clone(index, x + d[i].x, y + d[i].y);
+                int idx = atomic_inc(&items_total[0]);
 
-            // indexes
+                // indexes
 
-            bacteria_field[fld_idx] = idx;
+                bacteria_field[fld_idx] = idx;
 
-            pos[2*idx] = nx;
-            pos[2*idx+1] = ny;
-            for ( size_t i = 0; i < gen_len; i++ ) {
-                if ( random(idx + time) > 0.99 ) {
-                    gen[gen_len * idx + i] = (random(idx + time+1.) * COMMAND_COUNT);
-                } else {
-                    gen[gen_len * idx + i] = gen[gen_len * index + i];
+                pos[2*idx] = nx;
+                pos[2*idx+1] = ny;
+
+                for ( size_t i = 0; i < gen_len; i++ ) {
+                    if ( random(idx + time + i) > 0.99 ) {
+                        gen[gen_len * idx + i] = (random(idx + time+1. + i) * COMMAND_COUNT);
+                    } else {
+                        gen[gen_len * idx + i] = gen[gen_len * index + i];
+                    }
                 }
-            }
-                                   /* for( uint y = 0; y < h; y++ ) {
-                                        for( uint x = 0; x < w; x++ ) {
-                                            printf("%d\t", bacteria_field[x + y * w]);
-                                        }
-                                        printf("\n");
-                                    }*/
-            current_command[idx] = 0;
-            age[idx] = 0.;
-            energy[idx] = 0.1;
-            energy[index] = 0.1;
-            //printf("%0.3f new %d ->\t%d / %d\t%d x %d ->\t%d x %d\n", time, index, idx, w * h, x, y, nx, ny);
+                                       /* for( uint y = 0; y < h; y++ ) {
+                                            for( uint x = 0; x < w; x++ ) {
+                                                printf("%d\t", bacteria_field[x + y * w]);
+                                            }
+                                            printf("\n");
+                                        }*/
+                current_command[idx] = 0;
+                age[idx] = 0.;
+                energy[idx] = 0.1;
+                energy[index] = 0.1;
 
-            break;
+                //printf("%0.3f new %d ->\t%d / %d\t%d x %d ->\t%d x %d\n", time, index, idx, w * h, x, y, nx, ny);
+
+                break;
+            }
+
         }
     }
+
+    const int cmd_count = 4;
+    int cmd_idx = index*gen_len + current_command[index];
+    int cmd = gen[cmd_idx] % cmd_count;
+    int dir = -1;
+    switch(cmd) {
+        case 0: // jmp
+            current_command[index] = gen[(cmd_idx + 1) % gen_len] % gen_len;
+            break;
+        case 1: // move random
+            dir = random(index + time + cmd_idx) * 4 ; // dir count
+            current_command[index] = (current_command[index] + 1) % gen_len;
+        case 2: // move
+            {
+                if ( cmd == 2 ) {
+                    int next_command_idx = (cmd_idx + 1) % gen_len;
+                    dir = gen[next_command_idx] * 4;
+                    current_command[index] = (current_command[index] + 1) % gen_len;
+                }
+
+                int nx = x + d[dir].x;
+                int ny = y + d[dir].y;
+                if ( nx >= 0 && nx < w && ny >= 0 && ny < h ) {
+                    int fld_idx = nx + ny*w;
+                    if ( ground[fld_idx] != obstacle && bacteria_field[fld_idx] == -1 ) {
+                        bacteria_field[fld_idx] = index;
+                        bacteria_field[field_idx] = -1;
+                        pos[2*index] = nx;
+                        pos[2*index+1] = ny;
+                    }
+                }
+            }
+            break;
+        case 3: // eat_sun
+            current_command[index] = (current_command[index] + 1 ) % gen_len;
+            if ( light[field_idx] > 0 ) {
+                float a = 2 * energy_ps * light[field_idx];
+                energy[index] += a;
+                light[field_idx] -= a;
+            }
+            break;
+        default:
+            break;
+    }
+
+
 }

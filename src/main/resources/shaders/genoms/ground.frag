@@ -23,12 +23,12 @@ void main() {
     float b = 0.;
 
     if ( cell == 1 /*obstacle*/ ) {
-       // r = 0.8;
+       r = 0.8;
     }
     if ( cell == 4 /* food */) {
         b = 0.5;
     }
     //out_color  = vec4(ground / max_light, 0.0, 0., 1.0);
 
-    out_color = vec4(cell, ground , b, 0.2);
+    out_color = vec4(r, ground , b, 0.2);
 }

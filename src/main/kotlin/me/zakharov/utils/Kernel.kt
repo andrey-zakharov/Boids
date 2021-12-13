@@ -3,6 +3,8 @@ package me.zakharov.utils
 import me.apemanzilla.ktcl.CLKernel
 import me.apemanzilla.ktcl.cl10.*
 import me.zakharov.utils.IHeadlessActor
+import java.io.ByteArrayOutputStream
+import java.io.PrintStream
 
 /// in sources (${kernel_name}.c) should be kernel function name $kernel_name
 open class Kernel(val kernelName: String,
@@ -14,9 +16,33 @@ open class Kernel(val kernelName: String,
     companion object {
         private var i = 0
         val clDevice by lazy {
-            getPlatforms()
-                .first { clPlatform -> clPlatform.getDefaultDevice() != null }
-                .getDevices(type = DeviceType.GPU)[0]
+
+            val out = ByteArrayOutputStream()
+            with(PrintStream(out)) {
+                getPlatforms().forEach {
+                    println("platform: ${it.name} vendor: ${it.vendor} version: ${it.version}")
+                    it.getDevices().forEach {
+                        println("\tdevice: ${it.name} vendor: ${it.vendor} version: ${it.version} ${it.execCapabilities} extension: ${it.extensions}")
+                    }
+                    try {
+                        println("\tGPU: ${it.getDevices(DeviceType.GPU)}")
+                    } catch (e: Throwable) {}
+                    try {
+                        println("\tCPU: ${it.getDevices(DeviceType.CPU)}")
+                    } catch (e: Throwable) {}
+                }
+            }
+            println(out.toString())
+
+            val device = getPlatforms()
+                .first { clPlatform -> //clPlatform.getDefaultDevice() != null
+                    try {
+                        clPlatform.getDevices(DeviceType.GPU).isNotEmpty()
+                    } catch(e: Throwable) {false}
+                }
+                .getDevices(type = DeviceType.GPU).first()
+            println("Using: $device")
+            device
         }
         val ctx by lazy { clDevice.createContext() }
         val cmd by lazy {
