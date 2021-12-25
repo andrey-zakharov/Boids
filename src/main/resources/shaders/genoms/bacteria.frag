@@ -13,6 +13,7 @@ uniform sampler2D u_energy;
 uniform mat4 u_projTrans;
 uniform ivec2 u_selected; // not normalized
 uniform vec2 u_hovered;
+uniform int u_showLayer; // 0 -nothing 1 - age 2- energy 4- gen
 
 in vec4 v_color;
 in vec2 v_texCoords;
@@ -31,11 +32,30 @@ void main() {
     float alpha = 0.7;
     ivec2 cd = ivec2(v_texCoords.x * tex_size.x, v_texCoords.y * tex_size.y);
     float d = length(vec2(cd - u_selected));
+
+    ///
     if (0 <= d && d < 1) {
-        out_color = vec4(0.5, 1.0, 0.5, 0.95);
-        return;
+        //out_color = vec4(0.5, 1.0, 0.5, 0.95);
+        alpha = 1.0;
     }
+
+    out_color = vec4(0, 0, 0, alpha);
+
+    if ( (u_showLayer & 1) != 0 ) {
+        out_color.r = 1.0 - age;
+    }
+
+    if ( (u_showLayer & 2) != 0 ) {
+        out_color.b = energy;
+    }
+
     //vec4 p = texture(u_energy, v_texCoords);
-    out_color = vec4(1.0 - age, age, energy, alpha);
+    if ( (u_showLayer & 4) != 0 ) {
+        if ( energy - age > 0 ) {
+            out_color.g = age;
+        } else {
+            out_color.r = energy - age;
+        }
+    }
     //out_color = vec4(texture2D(u_age, ivec2(index, 0), 0).rgb, 1.0);
 }

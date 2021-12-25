@@ -7,18 +7,56 @@ import com.badlogic.gdx.graphics.g2d.Sprite
 import com.badlogic.gdx.graphics.glutils.ShaderProgram
 import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.scenes.scene2d.Actor
+import com.badlogic.gdx.scenes.scene2d.ui.CheckBox
+import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener
 import me.zakharov.me.zakharov.replicators.model.BacteriaSystem
+import me.zakharov.me.zakharov.utils.*
 import me.zakharov.utils.*
 import me.zakharov.utils.FloatTextureData
 import me.zakharov.utils.IntTextureData
 import java.nio.FloatBuffer
 import java.nio.IntBuffer
 
+//@CL
+enum class ShowMode(override val bit: Long) : Flags {
+    Age(1 shl 0),
+    Energy(1 shl 1),
+    Gen(1 shl 2),
+}
+// view stuff
+enum class BacteriaDrawerOptions(val label: String, val flag: ShowMode) {
+    A("age channel", ShowMode.Age),
+    E("energy channel", ShowMode.Energy),
+    G("gen channel", ShowMode.Gen),
+}
 
-class BacteriaDrawer(val model: BacteriaSystem) : Actor() {
+interface Controllable {
+    val controls: Sequence<Actor>
+}
 
+class BacteriaDrawer(val model: BacteriaSystem,
+                     private val skin: com.badlogic.gdx.scenes.scene2d.ui.Skin) : Actor(), Controllable {
+
+    override val controls: Sequence<Actor>
+        get() = BacteriaDrawerOptions.values().map { opt ->
+            CheckBox(opt.label, skin).also {
+                it.isChecked = showLayer.hasFlag(opt.flag)
+                it.addListener(object: ChangeListener() {
+                    override fun changed(event: ChangeEvent?, actor: Actor?) {
+                        if ( it.isChecked ) {
+                            showLayer += opt.flag
+                        } else {
+                            showLayer -= opt.flag
+                        }
+                    }
+                })
+            }
+        }.asSequence()
     var uniformSelectedX: Int = 0
     var uniformSelectedY: Int = 0
+
+    var showLayer: BitMask = ShowMode.Age + ShowMode.Energy + ShowMode.Gen
 
     var hovered = Vector2(Vector2.Zero)
     private val data by lazy { arrayOf(
@@ -76,6 +114,7 @@ class BacteriaDrawer(val model: BacteriaSystem) : Actor() {
             it.shader.safeSetUniform("max_index", model.current_idx)
             it.shader.safeSetUniform("max_age", model.cf.maxAge)
             it.shader.safeSetUniform("u_resolution", model.world.cf.width, model.world.cf.height)
+            it.shader.safeSetUniform("u_showLayer", showLayer.value.toInt())
 
             it.draw(tex[0], 0f, 0f, stage.width, stage.height)
             //it.draw(texAge, 5f, stage.height/2, model.max.toFloat(), 1f)

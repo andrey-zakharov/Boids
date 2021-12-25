@@ -10,6 +10,12 @@ fun ByteBuffer.print() {
     }
     println()
 }
+fun ByteArray.print() {
+    for( i in 0 until size ) {
+        print("%02x".format(this[i]))
+    }
+    println()
+}
 fun FloatBuffer.print() {
     if ( capacity() <= 0 ) return
 

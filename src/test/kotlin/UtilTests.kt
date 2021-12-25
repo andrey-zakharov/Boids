@@ -14,4 +14,9 @@ class UtilTests {
         assertEquals(4, (14).modE(5))
         assertEquals(0, (15).modE(5))
     }
+
+
+    @Test fun `bitmask works`() {
+
+    }
 }

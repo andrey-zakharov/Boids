@@ -16,51 +16,130 @@ import com.badlogic.gdx.utils.viewport.FitViewport
 import com.badlogic.gdx.utils.viewport.ScreenViewport
 import ktx.app.KtxScreen
 import me.zakharov.me.zakharov.replicators.gdx.BacteriaDrawer
+import me.zakharov.me.zakharov.replicators.gdx.ShowMode
 import me.zakharov.me.zakharov.replicators.gdx.WorldDrawer
 import me.zakharov.me.zakharov.replicators.model.*
+import me.zakharov.me.zakharov.utils.hasFlag
+import me.zakharov.me.zakharov.utils.minus
+import me.zakharov.me.zakharov.utils.plus
+import me.zakharov.utils.print
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import kotlin.math.floor
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
+interface IPlatformService {
+    val memUsed: Long
+}
+
+data class Coords(val x: Int, val y: Int) {
+    override fun toString() = "%d x %d".format(x, y)
+    companion object {
+        val ZERO = Coords(0, 0)
+        private val NB = listOf(Coords(-1, 0), Coords(1, 0), Coords(0, -1), Coords(0, 1))
+        // iterator for NBs TBD
+
+    }
+
+    fun coerseIn(min: Coords, max: Coords) =
+        // leads to obsecive GCs ;) lets try
+        Coords(x.coerceIn(min.x, max.x), y.coerceIn(min.y, max.y))
+
+    // for squares impl
+    // checks for bounds are on callee
+    fun getDir(dir: Int) = Coords(x + NB[dir].x, y + NB[dir].y)
+    fun getLeft() = getDir(0)
+    fun getRight() = getDir(1)
+    fun getUp() = getDir(2)
+    fun getDown() = getDir(3)
+    fun allNeibs(block: () -> Unit) {
+
+    }
+
+}
+
+// class BoundedCoords?
+
+interface IPlatformServiceAcceptor {
+    fun accept(service: IPlatformService)
+}
 class ReplicatorsScreen(private val batch: Batch?,
                         private val skin: Skin,
                         private val input: InputMultiplexer? = Gdx.input.inputProcessor as? InputMultiplexer
-) : KtxScreen {
+) : KtxScreen, IPlatformServiceAcceptor {
 
-    private val model by lazy {
-        BacteriaSystem(
-            BacteriaConf(maxAge = 1000), WorldSystem(WorldConf(width = 150, height = 150))
-        )
+    companion object {
+        private val model by lazy {
+            BacteriaSystem(
+                BacteriaConf(maxAge = 1000), WorldSystem(WorldConf(width = 100, height = 100))
+            )
+        }
+        internal val BoundingBox by lazy { Coords(model.world.cf.width, model.world.cf.height) }
     }
-    private var selected: Vector2 = Vector2(Vector2.Zero)
+
+    private var selected: Coords = Coords.ZERO
+        get() = Coords(bacteriaDrawer.uniformSelectedX, bacteriaDrawer.uniformSelectedY)
         set(v) {
             if (field != v ) {
                 field = v
-                bacteriaDrawer.uniformSelectedX = v.x.toInt()
-                bacteriaDrawer.uniformSelectedY = v.y.toInt()
+                bacteriaDrawer.uniformSelectedX = v.x
+                bacteriaDrawer.uniformSelectedY = v.y
             }
         }
 
+    //private var selectedObj: Bacteria? = null
+
+    // runtime state
     private var pause: Boolean = false
     private var step: Boolean = false
+    private var memused = 0L
+    private val console by lazy {
+        object: Label("console", skin) {
+            override fun act(delta: Float) {
+                super.act(delta)
+                setText(bacteriaDrawer.showLayer.value.toString(2))
+            }
+        }
+    }
+
+    override fun accept(service: IPlatformService) {
+        //bind memused = service.memUsed
+
+    }
+
+    private var drawBacterias: Boolean = true
+        set(v) {
+            if ( field == v ) return;
+            field = v;
+            bacteriaDrawer.isVisible = v
+        }
+    private var drawGround: Boolean = true
+        set(v) {
+            if ( field == v ) return;
+            field = v;
+            groundDrawer.isVisible = v
+        }
 
     private val ui by lazy {
         val random = Random(System.currentTimeMillis())
         Stage(ScreenViewport(/*Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat()*/), batch).apply {
             //isDebugAll = true
-            addActor(HorizontalGroup().apply {
+            // console .log here
+            addActor(VerticalGroup().apply {
                 top()
-                rowCenter()
                 setFillParent(true)
-                addActor(object: Label("total: ", skin ) {
+                addActor(object : Label("fps", skin) {
                     override fun act(delta: Float) {
                         super.act(delta)
-                        setText("total: ${model.current_idx}")
+                        setText("""
+                            fps: ${Gdx.graphics.framesPerSecond}
+                            frameId: ${Gdx.graphics.frameId}
+                            count: ${model.current_idx}
+                            mem:${memused} bytes""".trimIndent())
                     }
                 })
-
+                addActor(console)
             })
 
             addActor(VerticalGroup().apply {
@@ -68,6 +147,8 @@ class ReplicatorsScreen(private val batch: Batch?,
                 right()
                 setFillParent(true)
                 space(3f)
+
+                // info cell and bacteria
                 addActor(object:Label("selected", skin) {
                     override fun act(delta: Float) { // tbd only when dirty
                         super.act(delta)
@@ -86,32 +167,80 @@ class ReplicatorsScreen(private val batch: Batch?,
                             println("cell minerals: $mn")
 
                             val bidx = model.field[x, y]
-                            if ( bidx >=0 ) {
-                                val b = model[bidx]
-                                println("#%d".format(bidx))
-                                println("pos: %d x %d".format(b.pos.x.roundToInt(), b.pos.y.roundToInt()))
-                                println("age: %.0f%%".format(b.age * 100))
-                                println("energy: %.0f%%".format(b.energy * 100))
-                                println("current command: %d".format(b.current_command))
-                                for( i in 0 until model.cf.genLen ) {
+                            if ( bidx < 0 ) return@with
+                            model[bidx].run {
+                                println("#%d".format(model.field[x, y]))
+                                accept(this@with)
+
+                                /*for( i in 0 until model.cf.genLen ) {
                                     print("${b.gen[i]} ")
                                     if ( i > 0 && b.gen[i-1] == 0.toByte() && b.gen[i] == 0.toByte() ) {
                                         break;
                                     }
                                     if ( (i+1) % 10 == 0 ) println()
-                                }
+                                }*/
+                                //dispose()
                             }
                         }
                         setText(out.toString())
                     }
                 })
 
-                addActor(object : Label("fps: ", skin) {
-                    override fun act(delta: Float) {
-                        super.act(delta)
-                        setText("fps: ${Gdx.graphics.framesPerSecond}\nframeId: ${Gdx.graphics.frameId}\ncount: ${model.current_idx}")
-                    }
+                /// gen program list view
+                addActor(object: ScrollPane(
+                    object: com.badlogic.gdx.scenes.scene2d.ui.List<String>(skin) {
+                        override fun act(delta: Float) {
+                            super.act(delta)
+                            try {
+                                val x = this@ReplicatorsScreen.selected.x.toInt()
+                                val y = this@ReplicatorsScreen.selected.y.toInt()
+                                val bidx = model.field[x, y]
+                                if ( bidx < 0 ) return
+                                model[bidx].also { b->
+                                    val items = b.genStr.second.toTypedArray<String>()
+                                    this.setItems(*items)
+                                    this.selectedIndex = b.genStr.first
+                                }
+                            } catch (e: Throwable) {
+                                println(e.toString())
+                                val x = this@ReplicatorsScreen.selected.x.toInt()
+                                val y = this@ReplicatorsScreen.selected.y.toInt()
+                                val bidx = model.field[x, y]
+                                if ( bidx < 0 ) return
+                                model[bidx].also { b ->
+                                    println(b.genStr.first)
+                                    b.gen.print()
+                                    println(b.current_command)
+                                }
+                            }
+                        }
+
+                }, skin) {
                 })
+
+                bacteriaDrawer.controls.forEach { addActor(it) }
+
+
+                addActor(CheckBox("draw bacterias", skin).also {
+                    //
+                    drawBacterias
+                    it.isChecked = drawBacterias
+                    addListener(object : ChangeListener() {
+                        override fun changed(event: ChangeEvent?, actor: Actor?) {
+                            drawBacterias = it.isChecked
+                        }
+                    })
+                })
+
+                addActor(CheckBox("draw ground", skin).also {
+                    it.isChecked = drawGround
+                    addListener(object : ChangeListener() {
+                        override fun changed(event: ChangeEvent?, actor: Actor?) {
+                            drawGround = it.isChecked
+                        }
+                    })
+                })
+
                 addActor(object : TextButton("add bacteria", skin) {
 
                 }.also {
@@ -126,6 +255,7 @@ class ReplicatorsScreen(private val batch: Batch?,
                         }
                     })
                 })
+
                 addActor(object : TextButton("add 100x bacteria", skin) {
 
                 }.also {
@@ -141,10 +271,10 @@ class ReplicatorsScreen(private val batch: Batch?,
                 if (it !is InputEvent || it.type != InputEvent.Type.keyUp) return@addListener false
                 when(it.keyCode) {
                     Input.Keys.P -> { model.printDebug(); true }
-                    Input.Keys.LEFT -> { selected = Vector2((selected.x - 1).coerceIn(0f, model.world.cf.width.toFloat()), selected.y); true }
-                    Input.Keys.RIGHT -> { selected = Vector2((selected.x + 1).coerceIn(0f, model.world.cf.width.toFloat()), selected.y); true }
-                    Input.Keys.UP -> { selected = Vector2(selected.x, (selected.y - 1).coerceIn(0f, model.world.cf.height.toFloat())); true }
-                    Input.Keys.DOWN -> { selected = Vector2(selected.x, (selected.y + 1).coerceIn(0f, model.world.cf.height.toFloat())); true }
+                    Input.Keys.LEFT -> { selected = selected.getLeft().coerseIn(Coords.ZERO, BoundingBox); true }
+                    Input.Keys.RIGHT -> { selected = selected.getRight().coerseIn(Coords.ZERO, BoundingBox); true }
+                    Input.Keys.UP -> { selected = selected.getUp().coerseIn(Coords.ZERO, BoundingBox); true }
+                    Input.Keys.DOWN -> { selected = selected.getDown().coerseIn(Coords.ZERO, BoundingBox); true }
                     Input.Keys.SPACE -> { pause = !pause; true }
                     Input.Keys.ENTER -> { pause = true; step = true; true }
                     else -> false
@@ -154,11 +284,12 @@ class ReplicatorsScreen(private val batch: Batch?,
         }
     }
 
-    private val bacteriaDrawer by lazy { BacteriaDrawer(model) }
+    private val groundDrawer by lazy { WorldDrawer(model.world) }
+    private val bacteriaDrawer by lazy { BacteriaDrawer(model, skin) }
 
     private val scene by lazy {
         Stage(FitViewport(model.world.cf.width.toFloat(), model.world.cf.height.toFloat()), batch).apply {
-            addActor(WorldDrawer(model.world))
+            addActor(groundDrawer)
             addActor(bacteriaDrawer)
             addListener( object: InputListener() {
                 override fun mouseMoved(event: InputEvent?, x: Float, y: Float): Boolean {
@@ -171,6 +302,7 @@ class ReplicatorsScreen(private val batch: Batch?,
                 }
             })
             addListener( object: ClickListener() {
+                // camera 2 world stuff
                 override fun touchDragged(event: InputEvent?, x: Float, y: Float, pointer: Int) {
                     super.touchDragged(event, x, y, pointer)
                     val cf = model.world.cf
@@ -181,9 +313,10 @@ class ReplicatorsScreen(private val batch: Batch?,
                 }
                 override fun clicked(event: InputEvent?, x: Float, y: Float) {
                     super.clicked(event, x, y)
+                    // screen2world
                     val cx = x.coerceIn(0f, model.world.cf.width - 1f)
                     val cy = (model.world.cf.height - y).coerceIn( 0f, model.world.cf.height - 1f)
-                    selected = Vector2(floor(cx), floor(cy))
+                    selected = Coords(floor(cx).toInt(), floor(cy).toInt())
                 }
             })
         }
@@ -209,6 +342,7 @@ class ReplicatorsScreen(private val batch: Batch?,
             model.act(delta)
             step = false
         }
+
         arrayOf(scene, ui).forEach { s ->
             s.act(delta)
             s.viewport.apply(s == ui)

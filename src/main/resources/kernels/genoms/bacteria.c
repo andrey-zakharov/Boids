@@ -10,13 +10,18 @@
 #endif
 
 #ifndef energy_ps // photosynthesis
-    #define energy_ps 0.025
+    #define energy_ps 0.008
 #endif
 
+#ifndef minerals_to_energy
+    #define minerals_to_energy 0.5
+#endif
 
-__constant float2 d[4] = { (float2)(0, -1.),
-	(float2)(-1., 0.), (float2)(+1., 0.),
-    (float2)(0, 1.) };
+#define NEIB_COUNT 4
+
+__constant float2 d[NEIB_COUNT] = { (float2)(0, -1.),
+	(float2)(-1., 0.),                      (float2)(+1., 0.),
+                            (float2)(0, 1.) };
 
 #define KERNELS_ARGS     float time,\
                          float delta,\
@@ -136,7 +141,7 @@ void gen_processor(KERNELS_ARGS, int dx, int dy) {
         }
     }
 
-    const int cmd_count = 4;
+    const int cmd_count = 6;
     int cmd_idx = index*gen_len + current_command[index];
     int cmd = gen[cmd_idx] % cmd_count;
     int dir = -1;
@@ -151,7 +156,7 @@ void gen_processor(KERNELS_ARGS, int dx, int dy) {
             {
                 if ( cmd == 2 ) {
                     int next_command_idx = (cmd_idx + 1) % gen_len;
-                    dir = gen[next_command_idx] * 4;
+                    dir = gen[next_command_idx] % 4;
                     current_command[index] = (current_command[index] + 1) % gen_len;
                 }
 
@@ -164,6 +169,7 @@ void gen_processor(KERNELS_ARGS, int dx, int dy) {
                         bacteria_field[field_idx] = -1;
                         pos[2*index] = nx;
                         pos[2*index+1] = ny;
+                        energy[index] -= 0.01;
                     }
                 }
             }
@@ -176,6 +182,32 @@ void gen_processor(KERNELS_ARGS, int dx, int dy) {
                 light[field_idx] -= a;
             }
             break;
+        case 4: // harvest minerals
+            current_command[index] = (current_command[index] + 1 ) % gen_len;
+            if ( minerals[field_idx] > 0. ) {
+                energy[index] += minerals_to_energy * minerals[field_idx];
+                minerals[field_idx] = 0.;
+            }
+            break;
+        case 5: // eat neighbour
+            {
+                int next_command_idx = (cmd_idx + 1);
+                dir = gen[next_command_idx % gen_len] % NEIB_COUNT;
+                current_command[index] = (current_command[index] + 2 ) % gen_len;
+
+                int nx = x + d[dir].x;
+                int ny = y + d[dir].y;
+                if ( nx >= 0 && nx < w && ny >= 0 && ny < h ) {
+                    int fld_idx = nx + ny*w;
+                    if ( bacteria_field[fld_idx] != -1 ) {
+                        //printf("#%d (%d x %d) eat #%d (%d x %d) dir=%d\n", index, x, y, bacteria_field[fld_idx], nx, ny, dir );
+                        energy[index] += energy[bacteria_field[fld_idx]];
+                        bacteria_field[fld_idx] = -1;
+                    }
+                }
+            }
+            break;
+
         default:
             break;
     }

@@ -33,8 +33,3 @@ void enlight(KERNELS_ARGS) {
     barrier(CLK_LOCAL_MEM_FENCE);
     light[index] = amount;
 }
-
-__kernel
-void reindex(KERNELS_ARGS,
-    __global int* pos ) {
-}

@@ -14,7 +14,7 @@ data class WorldConf(
     val totalCells by lazy { width * height }
 }
 
-class WorldSystem(val cf: WorldConf) {
+class WorldSystem(val cf: WorldConf, fieldInitDrawer: ((Matrix2d<Byte>) -> Unit)? = null) : IHeadlessActor {
 
     val globalSize = cf.width * cf.height
     //val field = object: Matrix2d<Cell>(cf.width, cf.height, Cell.bytesize) {
@@ -22,12 +22,15 @@ class WorldSystem(val cf: WorldConf) {
         val minerals = createFloatMatrix2d(cf.width, cf.height)
         val moisture = createFloatMatrix2d(cf.width, cf.height)
         val cells = createByteMatrix2d(cf.width, cf.height).apply {
-            val r = min(10, cf.height-1)
-            for (x in 0 until min(15, cf.width)) {
-                this[x, r] = GroundType.obstacle.ordinal.toByte()
-            }
-            for(i in 0 until min(cf.width, cf.height)) {
-                this[i, i] = GroundType.obstacle.ordinal.toByte()
+            fieldInitDrawer?.invoke(this) ?: run {
+                //test case #1
+                val r = min(10, cf.height-1)
+                for (x in 0 until min(15, cf.width)) {
+                    this[x, r] = GroundType.obstacle.ordinal.toByte()
+                }
+                for(i in 0 until min(cf.width, cf.height)) {
+                    this[i, i] = GroundType.obstacle.ordinal.toByte()
+                }
             }
         }
 /*        override fun get(x: Int, y: Int): Cell {
@@ -68,7 +71,7 @@ class WorldSystem(val cf: WorldConf) {
         }
     } }
 
-    fun act(delta: Float) {
+    override fun act(delta: Float) {
         enlight.act(delta)
     }
 

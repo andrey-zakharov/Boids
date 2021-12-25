@@ -5,6 +5,8 @@ import me.apemanzilla.ktcl.cl10.enqueueNDRangeKernel
 import me.apemanzilla.ktcl.cl10.finish
 import me.apemanzilla.ktcl.cl10.setArg
 import me.zakharov.utils.*
+import java.io.ByteArrayOutputStream
+import java.io.PrintStream
 import java.nio.ByteBuffer
 import java.nio.FloatBuffer
 import java.nio.IntBuffer
@@ -15,6 +17,35 @@ interface IWorld {
     fun forArounds(block: () -> Boolean)
 }
 
+enum class commands(val lbl: String, val parseArgs: commands.(from: ByteIterator) -> Boolean = { false } ) {
+    Jmp("jmp", { i ->
+
+        if (args.isNotEmpty()) false
+        else {
+            args.add((i.next() % GEN_LENGTH).toByte())
+            true
+        }
+    }),
+    MoveRandom("move random", { false }),
+    Move("move", {
+        if (args.isNotEmpty()) false
+        else { args.add((it.next() % Dirs.values().size).toByte()); true }
+    } ),
+    EatLight("photo"),
+    Harvest("harvest"),
+    EatBacteria("eat", {
+            if (args.isNotEmpty()) false
+            else { args.add((it.next() % Dirs.values().size).toByte()); true }
+    });
+
+    val args: MutableCollection<Byte> = mutableListOf()
+}
+
+enum class Dirs(val lbl: String) {
+    Up("up"), Left("left"), Right("right"), Down("down")
+
+}
+
 data class Bacteria(
     val pos: Vector2,
     val gen: ByteArray = ByteArray(GEN_LENGTH) { 0 },
@@ -23,6 +54,63 @@ data class Bacteria(
     var energy: Float = 1f,
     var cell: Cell = Cell(),
 ) {
+    fun accept(out: PrintStream) = with(out) {
+        println("pos: %d x %d".format(pos.x.roundToInt(), pos.y.roundToInt()))
+        println("age: %.0f%%".format(age * 100))
+        println("energy: %.0f%%".format(energy * 100))
+        println("current command: %d".format(current_command))
+    }
+
+    val genStr by lazy {
+        var c = -1// current_command.toInt()
+        // eof = \0 \0? no, reaching 0 cc again.
+        //val genr = gen.slice(0 until GEN_LENGTH)
+        //while(genr.isNotEmpty()) {
+        //}
+        val gi = gen.iterator()
+        var cc = 0
+        val res = mutableListOf<String>()
+
+        while(gi.hasNext()) {
+            if ( cc == current_command.toInt() ) {
+                c = cc
+            }
+            val cmd = commands.values()[gi.next() % commands.values().size]
+            cc++
+
+            //kotlin.io.println("found $cmd for #c = $c, my pos = ${pos.x} x ${pos.y}")
+            //gen.sliceArray(0 until GEN_LENGTH).takeWhile { b ->
+            //    val cmdtype = commands.values()[b % commands.values().size]
+            while(cmd.parseArgs(cmd, gi)) {
+            }
+            cc += cmd.args.size
+
+            when(cmd) {
+                commands.Jmp -> {
+                    val next_command = cmd.args.first()
+                    res.add("jmp to $next_command")
+                    if ( next_command == 0x0.toByte()) break
+                }
+                commands.MoveRandom -> {
+                    res.add("move random")
+                }
+                commands.Move -> {
+                    val dir = Dirs.values()[cmd.args.first().toInt() /*% Dirs.values().size*/]
+                    res.add("move ${dir}")
+                }
+                commands.EatLight -> {
+                    res.add("eat light")
+                }
+                commands.EatBacteria -> {
+                    val dir = Dirs.values()[cmd.args.first().toInt() /*% Dirs.values().size*/]
+                    res.add("eat from $dir")
+                }
+            }
+        }
+
+        Pair(c, res)
+    }
+
     fun memSave(i: Byte, v: Byte) {
 
     }
@@ -63,9 +151,25 @@ data class BacteriaConf(
     val genLen: Int = 80,
 )
 
-class BacteriaSystem(val cf: BacteriaConf, val world: WorldSystem): IHeadlessActor {
+abstract class CompositeSystem() : IHeadlessActor {
+    abstract val actors: Collection<IHeadlessActor>
+    override fun act(delta: Float) {
+        actors.forEach { it.act(delta) }
+    }
+}
+
+class BacteriaSystem(val cf: BacteriaConf, val world: WorldSystem): CompositeSystem() {
+    override val actors by lazy { mutableListOf(
+        world,
+        graver,
+        gen_processor
+    ) }
+    fun reconfigure(cf: BacteriaConf) {
+
+    }
     val max = world.cf.width * world.cf.height
     val pos by lazy { createShared<IntBuffer>(max * 2) }
+    val poslookup by lazy { pos.buff<IntBuffer>() }
     val gen by lazy { createShared<ByteBuffer>(max * GEN_LENGTH) }
     val current_command by lazy { createShared<ByteBuffer>(max) }
     val age by lazy { createShared<FloatBuffer>(max) }
@@ -102,9 +206,9 @@ class BacteriaSystem(val cf: BacteriaConf, val world: WorldSystem): IHeadlessAct
         this[current_idx++] = b
     }
 
-    fun isAlive(i: Int): Boolean {
-        val x = pos.buff<IntBuffer>().get(2*i)
-        val y = pos.buff<IntBuffer>().get(2*i+1)
+    inline fun isAlive(i: Int): Boolean {
+        val x = poslookup.get(2*i)
+        val y = poslookup.get(2*i+1)
         return field[x, y] == i
     }
 
@@ -125,10 +229,13 @@ class BacteriaSystem(val cf: BacteriaConf, val world: WorldSystem): IHeadlessAct
 
     operator fun get(i: Int): Bacteria {
         assert(i < current_idx ) { "trying to get #$i total: $current_idx" }
+        val x = pos.buff<IntBuffer>().get(2*i)
+        val y = pos.buff<IntBuffer>().get(2*i+1)
+        assert( field[x, y] == i) { "getting dead bacteria" }
         return Bacteria(
             pos = Vector2(
-                pos.buff<IntBuffer>().get(2*i).toFloat(),
-                pos.buff<IntBuffer>().get(2*i+1).toFloat()
+                x.toFloat(),
+                y.toFloat()
             ),
             age = age.buff<FloatBuffer>().get(i),
             current_command = current_command.buff<ByteBuffer>().get(i),
@@ -151,21 +258,26 @@ class BacteriaSystem(val cf: BacteriaConf, val world: WorldSystem): IHeadlessAct
             WorldSystem::class.java.getResource("/kernels/genoms/bacteria.c")!!.readText()
         ).joinToString("\n")
     }
-    val kernelDefines by lazy { arrayOf(
-        "max_age=${cf.maxAge}.",
-        "gen_len=${GEN_LENGTH}",
-        "COMMAND_COUNT=${COMMAND.values().size}",
-        "CL_LOG_ERRORS=stdout",
-    ) }
+
+    val kernelDefines
+        get() = arrayOf(
+            "max_age=${cf.maxAge}.",
+            "gen_len=${cf.genLen}",
+            "COMMAND_COUNT=${COMMAND.values().size}", // not used
+            "CL_LOG_ERRORS=stdout",
+        )
+
     val fieldCl by lazy { Kernel.ctx.share(field.buff) }
     val ground by lazy { arrayOf(world.light, world.minerals, world.moisture, world.cells).map { Kernel.ctx.share(it.buff) } }
     var time = 0f
 
     init {
         arrayOf( pos, gen, current_idx_buff, current_command, age, energy ).forEach { it.attach(Kernel.ctx) }
+
+
     }
 
-    val graver by lazy { object: Kernel(
+    val graver get () = object: Kernel(
         "graver", kernelSource, kernelDefines = kernelDefines
     ) {
         override fun act(delta: Float) {
@@ -214,9 +326,9 @@ class BacteriaSystem(val cf: BacteriaConf, val world: WorldSystem): IHeadlessAct
                 enqueueRead(current_idx_buff)
             }
         }
-    } }
+    }
 
-    val gen_processor by lazy { object: Kernel(
+    val gen_processor get () = object: Kernel(
         "gen_processor", kernelSource, kernelDefines = kernelDefines
     ) {
         val cells = longArrayOf(ceil(world.cf.width / 3f).toLong(), ceil(world.cf.height / 3f).toLong())
@@ -295,16 +407,12 @@ class BacteriaSystem(val cf: BacteriaConf, val world: WorldSystem): IHeadlessAct
             }
 
         }
-    } }
+    }
 
     override fun act(delta: Float) {
         try {
-            world.act(delta)
-            graver.act(delta)
-
+            super.act(delta)
             reshake()
-
-            gen_processor.act(delta)
 
             checkIntegrity()
         } catch (e: kotlin.Throwable) {
@@ -339,23 +447,21 @@ class BacteriaSystem(val cf: BacteriaConf, val world: WorldSystem): IHeadlessAct
         //while( free_count > 0 ) {
             var i = 0
             var moved = 0
-            while ( i < current_idx) {
-                if (!isAlive(i)) {
-                    if ( i != current_idx - 1 ) { //special case
-                        //println("moving #${current_idx - 1} to #$i")
-                        copy(current_idx - 1, i)
-                    }
-                    //free_count --
-                    current_idx --
-                    moved ++
-                } else {
-                    i++
+            outer@ while (i < current_idx) {
+                while( isAlive(i) ) {
+                    i ++
+                    continue@outer
                 }
+
+                while( !isAlive(current_idx-1) ) {
+                    current_idx --
+                    continue@outer
+                }
+
+                //println("moving #${current_idx - 1} to #$i")
+                copy(current_idx - 1, i)
+                moved ++
             }
-        /*if (moved > 0 ) {
-            printDebug("after reshake")
-        }*/
-        //}
     }
 
     fun printDebug(label: String = "") {
