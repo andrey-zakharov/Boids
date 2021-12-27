@@ -5,34 +5,44 @@ import me.apemanzilla.ktcl.cl10.finish
 import me.apemanzilla.ktcl.cl10.setArg
 import me.zakharov.utils.*
 import java.lang.Integer.min
+import kotlin.math.PI
+import kotlin.math.sin
 
 // PARAMS
 data class WorldConf(
     val width: Int = 1000,
     val height: Int = 1000,
+    val medianUltraviolet: Float = 0.85f,
 ) {
     val totalCells by lazy { width * height }
 }
 
 class WorldSystem(val cf: WorldConf, fieldInitDrawer: ((Matrix2d<Byte>) -> Unit)? = null) : IHeadlessActor {
 
+    var time = 0f
+    val yearDur = 5 * 60; // 5 min
+    val seasonedUltraviolet: Float
+        get() =
+            // 2pi - is a full year = 5 min
+            cf.medianUltraviolet * ( 1 + sin(2 * PI * time / yearDur).toFloat() * 0.25f)
+
     val globalSize = cf.width * cf.height
     //val field = object: Matrix2d<Cell>(cf.width, cf.height, Cell.bytesize) {
-        val light = createFloatMatrix2d(cf.width, cf.height)
-        val minerals = createFloatMatrix2d(cf.width, cf.height)
-        val moisture = createFloatMatrix2d(cf.width, cf.height)
-        val cells = createByteMatrix2d(cf.width, cf.height).apply {
-            fieldInitDrawer?.invoke(this) ?: run {
-                //test case #1
-                val r = min(10, cf.height-1)
-                for (x in 0 until min(15, cf.width)) {
-                    this[x, r] = GroundType.obstacle.ordinal.toByte()
-                }
-                for(i in 0 until min(cf.width, cf.height)) {
-                    this[i, i] = GroundType.obstacle.ordinal.toByte()
-                }
+    val light = createFloatMatrix2d(cf.width, cf.height)
+    val minerals = createFloatMatrix2d(cf.width, cf.height)
+    val moisture = createFloatMatrix2d(cf.width, cf.height)
+    val cells = createByteMatrix2d(cf.width, cf.height).apply {
+        fieldInitDrawer?.invoke(this) ?: run {
+            //test case #1
+            val r = min(10, cf.height-1)
+            for (x in 0 until min(15, cf.width)) {
+                this[x, r] = GroundType.obstacle.ordinal.toByte()
+            }
+            for(i in 0 until min(cf.width, cf.height)) {
+                this[i, i] = GroundType.obstacle.ordinal.toByte()
             }
         }
+    }
 /*        override fun get(x: Int, y: Int): Cell {
             return Cell(light[x, y], minerals[x, y], moisture[x, y])
         }
@@ -50,7 +60,7 @@ class WorldSystem(val cf: WorldConf, fieldInitDrawer: ((Matrix2d<Byte>) -> Unit)
             WorldSystem::class.java.getResource("/kernels/genoms/world.c")!!.readText()
         )
     ) {
-        var time = 0f
+
         val cls = arrayOf(light, minerals, moisture, cells).map { it.buff.share(ctx) }
         override fun act(delta: Float) {
             time += delta
@@ -61,6 +71,7 @@ class WorldSystem(val cf: WorldConf, fieldInitDrawer: ((Matrix2d<Byte>) -> Unit)
                 setArg(a++, delta)
                 setArg(a++, cf.width)
                 setArg(a++, cf.height)
+                setArg(a++, seasonedUltraviolet)
                 cls.forEach { setArg(a++, it.remoteBuff) }
             }
             cls.forEach { cmd.enqueueWrite(it) }

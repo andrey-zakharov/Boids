@@ -93,6 +93,8 @@ void gen_processor(KERNELS_ARGS, int dx, int dy) {
     int field_idx = x + y * w;
     if (bacteria_field[field_idx] == -1) return;
     int index = bacteria_field[field_idx];
+
+    /// division
     if ( energy[index] >= 1. ) {
 
         //printf("%d", ground[0 + 10*w]);
@@ -141,24 +143,28 @@ void gen_processor(KERNELS_ARGS, int dx, int dy) {
         }
     }
 
+    /// gen instructions
     const int cmd_count = 6;
-    int cmd_idx = index*gen_len + current_command[index];
+    const int genArraySize = gen_len * w * h;
+    int cmd_idx = (index*gen_len + current_command[index]);
     int cmd = gen[cmd_idx] % cmd_count;
     int dir = -1;
     switch(cmd) {
         case 0: // jmp
-            current_command[index] = gen[(cmd_idx + 1) % gen_len] % gen_len;
+            current_command[index] = gen[(cmd_idx + 1) % genArraySize] % gen_len;
             break;
         case 1: // move random
-            dir = random(index + time + cmd_idx) * 4 ; // dir count
+            dir = random(index + time + cmd_idx) * NEIB_COUNT; // dir count
             current_command[index] = (current_command[index] + 1) % gen_len;
         case 2: // move
             {
+
                 if ( cmd == 2 ) {
-                    int next_command_idx = (cmd_idx + 1) % gen_len;
-                    dir = gen[next_command_idx] % 4;
+                    dir = gen[(cmd_idx + 1) % genArraySize] % NEIB_COUNT;
                     current_command[index] = (current_command[index] + 1) % gen_len;
                 }
+
+                if ( energy[index] < 0.01 ) break;
 
                 int nx = x + d[dir].x;
                 int ny = y + d[dir].y;
@@ -191,9 +197,8 @@ void gen_processor(KERNELS_ARGS, int dx, int dy) {
             break;
         case 5: // eat neighbour
             {
-                int next_command_idx = (cmd_idx + 1);
-                dir = gen[next_command_idx % gen_len] % NEIB_COUNT;
-                current_command[index] = (current_command[index] + 2 ) % gen_len;
+                dir = gen[(cmd_idx + 1) % genArraySize] % NEIB_COUNT;
+                current_command[index] = (current_command[index] + 2) % gen_len;
 
                 int nx = x + d[dir].x;
                 int ny = y + d[dir].y;

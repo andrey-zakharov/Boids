@@ -5,11 +5,13 @@ precision mediump float;
 uniform float time;
 uniform int max_index;
 uniform int max_age;
+uniform int gen_length;
 uniform isampler2D u_texture;
 //uniform sampler2D u_texture;
 uniform ivec2 u_resolution;
 uniform sampler2D u_age;
 uniform sampler2D u_energy;
+uniform isampler2D u_gen;
 uniform mat4 u_projTrans;
 uniform ivec2 u_selected; // not normalized
 uniform vec2 u_hovered;
@@ -54,8 +56,19 @@ void main() {
         if ( energy - age > 0 ) {
             out_color.g = age;
         } else {
-            out_color.r = energy - age;
+            out_color.g = 0.;
+            out_color.r = age - energy;
         }
+    }
+
+    //vec4 p = texture(u_energy, v_texCoords);
+    if ( (u_showLayer & 8) != 0 ) {
+        uint res = 0;
+        for ( int i = 0; i < gen_length/3; i++ ) {
+            float age = texelFetch(u_age, ivec2(index, index / tex_size.x), 0).r;
+
+        }
+
     }
     //out_color = vec4(texture2D(u_age, ivec2(index, 0), 0).rgb, 1.0);
 }

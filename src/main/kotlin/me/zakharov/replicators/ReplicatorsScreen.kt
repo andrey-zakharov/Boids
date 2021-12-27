@@ -98,7 +98,7 @@ class ReplicatorsScreen(private val batch: Batch?,
         object: Label("console", skin) {
             override fun act(delta: Float) {
                 super.act(delta)
-                setText(bacteriaDrawer.showLayer.value.toString(2))
+                //setText(bacteriaDrawer.showLayer.value.toString(2))
             }
         }
     }
@@ -154,6 +154,7 @@ class ReplicatorsScreen(private val batch: Batch?,
                         super.act(delta)
                         val out = ByteArrayOutputStream()
                         with(PrintStream(out)) {
+                            println("season: %.3f".format(model.world.seasonedUltraviolet))
                             println("selected $selected")
                             val x = selected.x.toInt()
                             val y = selected.y.toInt()
@@ -191,24 +192,19 @@ class ReplicatorsScreen(private val batch: Batch?,
                     object: com.badlogic.gdx.scenes.scene2d.ui.List<String>(skin) {
                         override fun act(delta: Float) {
                             super.act(delta)
-                            try {
-                                val x = this@ReplicatorsScreen.selected.x.toInt()
-                                val y = this@ReplicatorsScreen.selected.y.toInt()
-                                val bidx = model.field[x, y]
-                                if ( bidx < 0 ) return
-                                model[bidx].also { b->
-                                    val items = b.genStr.second.toTypedArray<String>()
-                                    this.setItems(*items)
-                                    this.selectedIndex = b.genStr.first
-                                }
-                            } catch (e: Throwable) {
-                                println(e.toString())
-                                val x = this@ReplicatorsScreen.selected.x.toInt()
-                                val y = this@ReplicatorsScreen.selected.y.toInt()
-                                val bidx = model.field[x, y]
-                                if ( bidx < 0 ) return
-                                model[bidx].also { b ->
-                                    println(b.genStr.first)
+                            val x = this@ReplicatorsScreen.selected.x.toInt()
+                            val y = this@ReplicatorsScreen.selected.y.toInt()
+                            val bidx = model.field[x, y]
+                            if ( bidx < 0 ) return
+                            model[bidx].also { b->
+                                val items = b.genStr.toTypedArray()
+                                this.setItems(*items)
+                                try {
+                                    this.selectedIndex = b.current_command.toInt()
+
+                                } catch (e: Throwable) {
+                                    println(e)
+                                    println(b.genStr.joinToString(", "))
                                     b.gen.print()
                                     println(b.current_command)
                                 }

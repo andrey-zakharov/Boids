@@ -22,12 +22,14 @@ import java.nio.IntBuffer
 enum class ShowMode(override val bit: Long) : Flags {
     Age(1 shl 0),
     Energy(1 shl 1),
-    Gen(1 shl 2),
+    Balance(1 shl 2),
+    Gen(1 shl 3),
 }
 // view stuff
 enum class BacteriaDrawerOptions(val label: String, val flag: ShowMode) {
     A("age channel", ShowMode.Age),
     E("energy channel", ShowMode.Energy),
+    B("balance", ShowMode.Balance),
     G("gen channel", ShowMode.Gen),
 }
 
@@ -63,6 +65,7 @@ class BacteriaDrawer(val model: BacteriaSystem,
         IntTextureData(model.world.cf.width, model.world.cf.height, model.field.buff), // bacteria_field
         FloatTextureData(model.world.cf.width, model.world.cf.height, model.age._buff), // age
         FloatTextureData(model.world.cf.width, model.world.cf.height, model.energy._buff), // energy
+        ByteTextureData(model.cf.genLen, model.world.cf.totalCells, model.gen._buff), // energy
     )}
 
     private val tex by lazy {
@@ -97,6 +100,9 @@ class BacteriaDrawer(val model: BacteriaSystem,
         batch?.let {
             it.shader = shaderProgram
 
+            tex[3].bind(3)
+            it.shader.safeSetUniform("u_gen", 3)
+
             tex[2].bind(2)
             it.shader.safeSetUniform("u_energy", 2)
 
@@ -115,6 +121,7 @@ class BacteriaDrawer(val model: BacteriaSystem,
             it.shader.safeSetUniform("max_age", model.cf.maxAge)
             it.shader.safeSetUniform("u_resolution", model.world.cf.width, model.world.cf.height)
             it.shader.safeSetUniform("u_showLayer", showLayer.value.toInt())
+            it.shader.safeSetUniform("gen_length", model.cf.genLen)
 
             it.draw(tex[0], 0f, 0f, stage.width, stage.height)
             //it.draw(texAge, 5f, stage.height/2, model.max.toFloat(), 1f)

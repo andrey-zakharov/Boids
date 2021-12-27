@@ -5,8 +5,6 @@ import me.apemanzilla.ktcl.cl10.enqueueNDRangeKernel
 import me.apemanzilla.ktcl.cl10.finish
 import me.apemanzilla.ktcl.cl10.setArg
 import me.zakharov.utils.*
-import java.io.ByteArrayOutputStream
-import java.io.PrintStream
 import java.nio.ByteBuffer
 import java.nio.FloatBuffer
 import java.nio.IntBuffer
@@ -17,25 +15,21 @@ interface IWorld {
     fun forArounds(block: () -> Boolean)
 }
 
-enum class commands(val lbl: String, val parseArgs: commands.(from: ByteIterator) -> Boolean = { false } ) {
+enum class commands(val lbl: String, val parseArgs: commands.(from: ByteBuffer) -> Boolean = { false } ) {
     Jmp("jmp", { i ->
-
-        if (args.isNotEmpty()) false
-        else {
-            args.add((i.next() % GEN_LENGTH).toByte())
-            true
-        }
+        args.clear()
+        args.add((i.get() % GEN_LENGTH).toByte())
     }),
-    MoveRandom("move random", { false }),
+    MoveRandom("move random"),
     Move("move", {
-        if (args.isNotEmpty()) false
-        else { args.add((it.next() % Dirs.values().size).toByte()); true }
+        args.clear()
+        args.add((it.get() % Dirs.values().size).toByte())
     } ),
     EatLight("photo"),
     Harvest("harvest"),
     EatBacteria("eat", {
-            if (args.isNotEmpty()) false
-            else { args.add((it.next() % Dirs.values().size).toByte()); true }
+            args.clear()
+            args.add((it.get() % Dirs.values().size).toByte())
     });
 
     val args: MutableCollection<Byte> = mutableListOf()
@@ -43,107 +37,6 @@ enum class commands(val lbl: String, val parseArgs: commands.(from: ByteIterator
 
 enum class Dirs(val lbl: String) {
     Up("up"), Left("left"), Right("right"), Down("down")
-
-}
-
-data class Bacteria(
-    val pos: Vector2,
-    val gen: ByteArray = ByteArray(GEN_LENGTH) { 0 },
-    var current_command: Byte = 0, // for 80 GEN_LENGTH
-    var age: Float = 0f,
-    var energy: Float = 1f,
-    var cell: Cell = Cell(),
-) {
-    fun accept(out: PrintStream) = with(out) {
-        println("pos: %d x %d".format(pos.x.roundToInt(), pos.y.roundToInt()))
-        println("age: %.0f%%".format(age * 100))
-        println("energy: %.0f%%".format(energy * 100))
-        println("current command: %d".format(current_command))
-    }
-
-    val genStr by lazy {
-        var c = -1// current_command.toInt()
-        // eof = \0 \0? no, reaching 0 cc again.
-        //val genr = gen.slice(0 until GEN_LENGTH)
-        //while(genr.isNotEmpty()) {
-        //}
-        val gi = gen.iterator()
-        var cc = 0
-        val res = mutableListOf<String>()
-
-        while(gi.hasNext()) {
-            if ( cc == current_command.toInt() ) {
-                c = cc
-            }
-            val cmd = commands.values()[gi.next() % commands.values().size]
-            cc++
-
-            //kotlin.io.println("found $cmd for #c = $c, my pos = ${pos.x} x ${pos.y}")
-            //gen.sliceArray(0 until GEN_LENGTH).takeWhile { b ->
-            //    val cmdtype = commands.values()[b % commands.values().size]
-            while(cmd.parseArgs(cmd, gi)) {
-            }
-            cc += cmd.args.size
-
-            when(cmd) {
-                commands.Jmp -> {
-                    val next_command = cmd.args.first()
-                    res.add("jmp to $next_command")
-                    if ( next_command == 0x0.toByte()) break
-                }
-                commands.MoveRandom -> {
-                    res.add("move random")
-                }
-                commands.Move -> {
-                    val dir = Dirs.values()[cmd.args.first().toInt() /*% Dirs.values().size*/]
-                    res.add("move ${dir}")
-                }
-                commands.EatLight -> {
-                    res.add("eat light")
-                }
-                commands.EatBacteria -> {
-                    val dir = Dirs.values()[cmd.args.first().toInt() /*% Dirs.values().size*/]
-                    res.add("eat from $dir")
-                }
-            }
-        }
-
-        Pair(c, res)
-    }
-
-    fun memSave(i: Byte, v: Byte) {
-
-    }
-
-    fun memLoad(i: Byte): Byte {
-        return 0
-    }
-
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
-
-        other as Bacteria
-
-        if (pos != other.pos) return false
-        if (!gen.contentEquals(other.gen)) return false
-        if (current_command != other.current_command) return false
-        if (age != other.age) return false
-        if (energy != other.energy) return false
-        if (cell != other.cell) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        var result = pos.hashCode()
-        result = 31 * result + gen.contentHashCode()
-        result = 31 * result + current_command
-        result = 31 * result + age.hashCode()
-        result = 31 * result + energy.hashCode()
-        result = 31 * result + cell.hashCode()
-        return result
-    }
 }
 
 data class BacteriaConf(

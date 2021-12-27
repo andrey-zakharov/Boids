@@ -1,11 +1,8 @@
-#ifndef TOP_LIGHT
-    #define TOP_LIGHT 100
-#endif
-
 #define KERNELS_ARGS     float time,\
                          float delta,\
                          uint w,\
                          uint h,\
+                         float     maxLight,\
                          __global float*     light,\
                          __global float*     minerals,\
                          __global float*     moisture,\
@@ -20,7 +17,7 @@ void enlight(KERNELS_ARGS) {
     float K = 1. - 1./(float)h;
 
     // get cell
-    float amount = 1.;
+    float amount = maxLight;
     if ( group > 0 ) {
         int cell_above_idx = index-w;
         amount = K * light[cell_above_idx];
