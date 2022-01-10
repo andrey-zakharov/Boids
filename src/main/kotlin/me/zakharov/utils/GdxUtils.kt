@@ -6,6 +6,9 @@ import com.badlogic.gdx.graphics.GL30
 import com.badlogic.gdx.graphics.Pixmap
 import com.badlogic.gdx.graphics.TextureData
 import com.badlogic.gdx.graphics.glutils.ShaderProgram
+import com.badlogic.gdx.scenes.scene2d.Actor
+import com.badlogic.gdx.scenes.scene2d.ui.Button
+import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener
 import com.badlogic.gdx.utils.GdxRuntimeException
 import java.nio.ByteBuffer
 import java.nio.IntBuffer
@@ -145,3 +148,15 @@ fun ShaderProgram.safeSetUniform(name: String, valu: Int) {
 //        }
 //    }) }
 //}
+
+fun interface onUpdateListener {
+    fun onUpdate(target: Actor?, event: ChangeListener.ChangeEvent?, value: Any?): Unit
+}
+
+fun Button.onClick(listener: onUpdateListener) {
+    addListener(object: ChangeListener() {
+        override fun changed(event: ChangeEvent?, actor: Actor?) {
+            listener.onUpdate(actor, event, null)
+        }
+    } )
+}

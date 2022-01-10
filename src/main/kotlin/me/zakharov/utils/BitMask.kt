@@ -1,4 +1,4 @@
-package me.zakharov.me.zakharov.utils
+package me.zakharov.utils
 
 class BitMask(val value: Long)
 

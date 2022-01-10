@@ -1,8 +1,9 @@
-package me.zakharov.me.zakharov.replicators.model
+package me.zakharov.replicators.model
 
 import me.apemanzilla.ktcl.cl10.enqueueNDRangeKernel
 import me.apemanzilla.ktcl.cl10.finish
 import me.apemanzilla.ktcl.cl10.setArg
+import me.zakharov.Const
 import me.zakharov.utils.*
 import java.lang.Integer.min
 import kotlin.math.PI
@@ -15,6 +16,16 @@ data class WorldConf(
     val medianUltraviolet: Float = 0.85f,
 ) {
     val totalCells by lazy { width * height }
+}
+
+data class Cell(
+    var light: Float = 0f,
+    var minerals: Float = 0f,
+    var moisture: Float = 0f,
+) {
+    companion object {
+        val bytesize = Const.FLOAT_SIZE * 3
+    }
 }
 
 class WorldSystem(val cf: WorldConf, fieldInitDrawer: ((Matrix2d<Byte>) -> Unit)? = null) : IHeadlessActor {
@@ -33,14 +44,16 @@ class WorldSystem(val cf: WorldConf, fieldInitDrawer: ((Matrix2d<Byte>) -> Unit)
     val moisture = createFloatMatrix2d(cf.width, cf.height)
     val cells = createByteMatrix2d(cf.width, cf.height).apply {
         fieldInitDrawer?.invoke(this) ?: run {
+            for(i in 0 until min(cf.width, cf.height)) {
+                this[i, i] = GroundType.obstacle.ordinal.toByte()
+            }
+            if ( cf.width < 5 ) return@run
             //test case #1
             val r = min(10, cf.height-1)
             for (x in 0 until min(15, cf.width)) {
                 this[x, r] = GroundType.obstacle.ordinal.toByte()
             }
-            for(i in 0 until min(cf.width, cf.height)) {
-                this[i, i] = GroundType.obstacle.ordinal.toByte()
-            }
+
         }
     }
 /*        override fun get(x: Int, y: Int): Cell {
@@ -85,6 +98,7 @@ class WorldSystem(val cf: WorldConf, fieldInitDrawer: ((Matrix2d<Byte>) -> Unit)
     override fun act(delta: Float) {
         enlight.act(delta)
     }
+
 
 
 }

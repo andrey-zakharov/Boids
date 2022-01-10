@@ -1,10 +1,11 @@
-package me.zakharov.me.zakharov.replicators.model
+package me.zakharov.replicators.model
 
 import com.badlogic.gdx.math.Vector2
 import me.apemanzilla.ktcl.cl10.enqueueNDRangeKernel
 import me.apemanzilla.ktcl.cl10.finish
 import me.apemanzilla.ktcl.cl10.setArg
 import me.zakharov.utils.*
+import java.io.PrintStream
 import java.nio.ByteBuffer
 import java.nio.FloatBuffer
 import java.nio.IntBuffer
@@ -52,14 +53,15 @@ abstract class CompositeSystem() : IHeadlessActor {
 }
 
 class BacteriaSystem(val cf: BacteriaConf, val world: WorldSystem): CompositeSystem() {
+    suspend fun export(out: PrintStream) {
+
+    }
     override val actors by lazy { mutableListOf(
         world,
         graver,
         gen_processor
     ) }
-    fun reconfigure(cf: BacteriaConf) {
 
-    }
     val max = world.cf.width * world.cf.height
     val pos by lazy { createShared<IntBuffer>(max * 2) }
     val poslookup by lazy { pos.buff<IntBuffer>() }
@@ -75,6 +77,11 @@ class BacteriaSystem(val cf: BacteriaConf, val world: WorldSystem): CompositeSys
             this[x, y] = -1
         }
     }
+
+    val freeCells
+        get() = this.field.asSequence()
+            .filter { field[it.first, it.second] == -1 }
+            .filter { world.cells[it.first, it.second] != GroundType.obstacle.ordinal.toByte() }
 
     val current_idx_buff by lazy { createShared<IntBuffer>(3).also {
         with(it.buff<IntBuffer>()) { put(0, 0); put(1, 0); put(2, 0) }
@@ -106,7 +113,8 @@ class BacteriaSystem(val cf: BacteriaConf, val world: WorldSystem): CompositeSys
     }
 
     operator fun set(i: Int, b: Bacteria) {
-        assert ( i < max )
+        println("setting $i @ ${b.pos}")
+         assert ( i < max )
         val x = b.pos.x.roundToInt()
         val y = b.pos.y.roundToInt()
 
@@ -132,7 +140,12 @@ class BacteriaSystem(val cf: BacteriaConf, val world: WorldSystem): CompositeSys
             ),
             age = age.buff<FloatBuffer>().get(i),
             current_command = current_command.buff<ByteBuffer>().get(i),
-            energy = energy.buff<FloatBuffer>().get(i)
+            energy = energy.buff<FloatBuffer>().get(i),
+            cell = Cell(
+                world.light[x, y],
+                world.minerals[x, y],
+                world.moisture[x, y]
+            )
         ).also {
             //gen._buff.copyInto(it.gen.copyInto()
             for( ix in 0 until GEN_LENGTH) {
@@ -310,13 +323,13 @@ class BacteriaSystem(val cf: BacteriaConf, val world: WorldSystem): CompositeSys
             checkIntegrity()
         } catch (e: kotlin.Throwable) {
             println(e)
-            printDebug()
+            printDebug(this.javaClass.simpleName + " ERROR:")
             throw e
         }
     }
 
     private fun checkIntegrity() {
-        assert( world.cells[0, 10] == GroundType.obstacle.ordinal.toByte() )
+        //assert( world.cells[0, 10] == GroundType.obstacle.ordinal.toByte() )
         assert(current_idx >= 0 && current_idx <= world.cf.totalCells) { "expected $current_idx not negative and less ${world.cf.totalCells}"}
         val posarray = pos.buff<IntBuffer>()
         for ( i in 0 until current_idx ) {
@@ -359,12 +372,12 @@ class BacteriaSystem(val cf: BacteriaConf, val world: WorldSystem): CompositeSys
 
     fun printDebug(label: String = "") {
         println("[$label] total: $current_idx")
-        for( i in 0 until current_idx ) {
+        for ( i in 0 until current_idx ) {
             val b = this[i]
-            println("#$i pos: ${b.pos.x}x${b.pos.y} age: ${b.age*100}%")
+            println("#$i pos: ${b.pos.x}x${b.pos.y} age: ${b.age*100}%\t${b.gen.print()}")
         }
 
-        for( y in 0 until world.cf.height ) {
+        for ( y in 0 until world.cf.height ) {
             for( x in 0 until world.cf.width ) {
                 print("${field[x, y]}\t")
             }

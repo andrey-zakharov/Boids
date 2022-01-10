@@ -1,7 +1,6 @@
 package me.zakharov.utils
 
 import me.zakharov.Const
-import me.zakharov.getTypeSize
 import org.lwjgl.BufferUtils
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -40,6 +39,16 @@ abstract class Matrix2d<T> constructor(
                 block(x, y, this[x, y])
             }
         }
+    }
+
+    fun asSequence(prevPoint: Pair<Int, Int> = Pair(0, 0)) = generateSequence(prevPoint) {
+        if ( it.first + 1 < width )
+            Pair(it.first + 1, it.second)
+        else
+            if ( it.second + 1 < height )
+                Pair(0, it.second + 1)
+            else
+                null
     }
     // tbd kernel invoke on some kernel
 }

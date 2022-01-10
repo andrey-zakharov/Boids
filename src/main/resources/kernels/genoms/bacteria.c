@@ -183,7 +183,7 @@ void gen_processor(KERNELS_ARGS, int dx, int dy) {
         case 3: // eat_sun
             current_command[index] = (current_command[index] + 1 ) % gen_len;
             if ( light[field_idx] > 0 ) {
-                float a = 2 * energy_ps * light[field_idx];
+                float a = 0.2 * light[field_idx];
                 energy[index] += a;
                 light[field_idx] -= a;
             }

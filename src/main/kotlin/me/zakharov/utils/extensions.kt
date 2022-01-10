@@ -1,5 +1,9 @@
 package me.zakharov.utils
 
+import com.badlogic.gdx.scenes.scene2d.ui.Button
+import com.sun.xml.internal.messaging.saaj.util.ByteOutputStream
+import java.io.OutputStreamWriter
+import java.io.PrintStream
 import java.nio.ByteBuffer
 import java.nio.FloatBuffer
 
@@ -10,12 +14,20 @@ fun ByteBuffer.print() {
     }
     println()
 }
-fun ByteArray.print() {
-    for( i in 0 until size ) {
-        print("%02x".format(this[i]))
-    }
-    println()
+
+fun ByteArray.print(): String {
+    val r = ByteOutputStream()
+    val o = PrintStream(r)
+    print(o)
+    return r.toString()
 }
+
+fun ByteArray.print(out: PrintStream = System.out) {
+    for( i in 0 until size ) {
+        out.print("%02x".format(this[i]))
+    }
+}
+
 fun FloatBuffer.print() {
     if ( capacity() <= 0 ) return
 
@@ -67,3 +79,4 @@ inline fun<reified E: Enum<E>> clCode(): String =
     ) {
         "%s = %d".format(it.name, it.ordinal)
     }
+

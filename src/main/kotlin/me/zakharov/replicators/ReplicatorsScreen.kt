@@ -1,4 +1,4 @@
-package me.zakharov.me.zakharov.replicators
+package me.zakharov.replicators
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
@@ -16,12 +16,9 @@ import com.badlogic.gdx.utils.viewport.FitViewport
 import com.badlogic.gdx.utils.viewport.ScreenViewport
 import ktx.app.KtxScreen
 import me.zakharov.me.zakharov.replicators.gdx.BacteriaDrawer
-import me.zakharov.me.zakharov.replicators.gdx.ShowMode
 import me.zakharov.me.zakharov.replicators.gdx.WorldDrawer
-import me.zakharov.me.zakharov.replicators.model.*
-import me.zakharov.me.zakharov.utils.hasFlag
-import me.zakharov.me.zakharov.utils.minus
-import me.zakharov.me.zakharov.utils.plus
+import me.zakharov.replicators.model.*
+import me.zakharov.utils.onClick
 import me.zakharov.utils.print
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
@@ -72,7 +69,7 @@ class ReplicatorsScreen(private val batch: Batch?,
     companion object {
         private val model by lazy {
             BacteriaSystem(
-                BacteriaConf(maxAge = 1000), WorldSystem(WorldConf(width = 100, height = 100))
+                BacteriaConf(maxAge = 1000), WorldSystem(WorldConf(width = 30, height = 30))
             )
         }
         internal val BoundingBox by lazy { Coords(model.world.cf.width, model.world.cf.height) }
@@ -87,6 +84,8 @@ class ReplicatorsScreen(private val batch: Batch?,
                 bacteriaDrawer.uniformSelectedY = v.y
             }
         }
+
+    private var track: Int = 0
 
     //private var selectedObj: Bacteria? = null
 
@@ -192,26 +191,28 @@ class ReplicatorsScreen(private val batch: Batch?,
                     object: com.badlogic.gdx.scenes.scene2d.ui.List<String>(skin) {
                         override fun act(delta: Float) {
                             super.act(delta)
-                            val x = this@ReplicatorsScreen.selected.x.toInt()
-                            val y = this@ReplicatorsScreen.selected.y.toInt()
+                            val x = this@ReplicatorsScreen.selected.x
+                            val y = this@ReplicatorsScreen.selected.y
                             val bidx = model.field[x, y]
                             if ( bidx < 0 ) return
                             model[bidx].also { b->
-                                val items = b.genStr.toTypedArray()
+                                val items = b.genStr.values.toTypedArray()
                                 this.setItems(*items)
                                 try {
-                                    this.selectedIndex = b.current_command.toInt()
+                                    val prefix = b.current_command.toString(10)
+                                    this.selectedIndex = items.indexOfFirst { it.startsWith(prefix) }
 
                                 } catch (e: Throwable) {
                                     println(e)
-                                    println(b.genStr.joinToString(", "))
-                                    b.gen.print()
+                                    println(b.genStr.values.joinToString(", "))
+                                    println(b.gen.print())
                                     println(b.current_command)
                                 }
                             }
                         }
 
                 }, skin) {
+
                 })
 
                 bacteriaDrawer.controls.forEach { addActor(it) }
@@ -261,6 +262,14 @@ class ReplicatorsScreen(private val batch: Batch?,
                         }
                     })
                 })
+
+                addActor(TextButton("test", skin).apply {
+                    onClick { t, e, v ->
+
+
+                    }
+
+                })
             })
 
             addListener {
@@ -271,6 +280,8 @@ class ReplicatorsScreen(private val batch: Batch?,
                     Input.Keys.RIGHT -> { selected = selected.getRight().coerseIn(Coords.ZERO, BoundingBox); true }
                     Input.Keys.UP -> { selected = selected.getUp().coerseIn(Coords.ZERO, BoundingBox); true }
                     Input.Keys.DOWN -> { selected = selected.getDown().coerseIn(Coords.ZERO, BoundingBox); true }
+                    Input.Keys.PAGE_UP -> { track = (track + 1) % model.current_idx; true }
+                    Input.Keys.PAGE_DOWN -> { track = (track - 1) % model.current_idx; true }
                     Input.Keys.SPACE -> { pause = !pause; true }
                     Input.Keys.ENTER -> { pause = true; step = true; true }
                     else -> false
@@ -320,13 +331,13 @@ class ReplicatorsScreen(private val batch: Batch?,
 
     fun addRandom(count: Int = 100) {
         val random = Random(System.currentTimeMillis())
-        for( i in 0..count ) {
-            val x = random.nextInt(model.world.cf.width).toFloat()
-            val y = random.nextInt(model.world.cf.height).toFloat()
+        model.freeCells.shuffled(random).take(
+            count.coerceAtMost(model.world.cf.totalCells)
+        ).forEach {
             model.add(
                 Bacteria(
-                    pos = Vector2(x, y),
-                    age = 0f,
+                    pos = Vector2(it.first.toFloat(), it.second.toFloat()),
+                    age = random.nextFloat() * 0.1f,
                     energy = random.nextFloat()
                 )
             )

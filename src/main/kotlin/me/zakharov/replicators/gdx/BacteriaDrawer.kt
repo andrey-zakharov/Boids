@@ -3,20 +3,13 @@ package me.zakharov.me.zakharov.replicators.gdx
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.Batch
-import com.badlogic.gdx.graphics.g2d.Sprite
 import com.badlogic.gdx.graphics.glutils.ShaderProgram
 import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.scenes.scene2d.Actor
 import com.badlogic.gdx.scenes.scene2d.ui.CheckBox
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener
-import com.badlogic.gdx.scenes.scene2d.utils.ClickListener
-import me.zakharov.me.zakharov.replicators.model.BacteriaSystem
-import me.zakharov.me.zakharov.utils.*
+import me.zakharov.replicators.model.BacteriaSystem
 import me.zakharov.utils.*
-import me.zakharov.utils.FloatTextureData
-import me.zakharov.utils.IntTextureData
-import java.nio.FloatBuffer
-import java.nio.IntBuffer
 
 //@CL
 enum class ShowMode(override val bit: Long) : Flags {
@@ -58,14 +51,14 @@ class BacteriaDrawer(val model: BacteriaSystem,
     var uniformSelectedX: Int = 0
     var uniformSelectedY: Int = 0
 
-    var showLayer: BitMask = ShowMode.Age + ShowMode.Energy + ShowMode.Gen
+    var showLayer: BitMask = ShowMode.Age + ShowMode.Energy + ShowMode.Balance
 
     var hovered = Vector2(Vector2.Zero)
     private val data by lazy { arrayOf(
         IntTextureData(model.world.cf.width, model.world.cf.height, model.field.buff), // bacteria_field
         FloatTextureData(model.world.cf.width, model.world.cf.height, model.age._buff), // age
         FloatTextureData(model.world.cf.width, model.world.cf.height, model.energy._buff), // energy
-        ByteTextureData(model.cf.genLen, model.world.cf.totalCells, model.gen._buff), // energy
+        ByteTextureData(model.cf.genLen, model.world.cf.totalCells, model.gen._buff), // gen
     )}
 
     private val tex by lazy {
@@ -76,6 +69,12 @@ class BacteriaDrawer(val model: BacteriaSystem,
             }
         }
     }
+    private val testDrawer by lazy {
+        BufferDrawer(data[3])
+    }
+
+    private val test2Drawer by lazy { BufferDrawer(data[0]) }
+    private val test3Drawer by lazy { BufferDrawer(data[1]) }
 
     private val shaderProgram = ShaderProgram(
         Gdx.files.internal("shaders/genoms/bacteria.vert").readString(),
@@ -122,10 +121,17 @@ class BacteriaDrawer(val model: BacteriaSystem,
             it.shader.safeSetUniform("u_resolution", model.world.cf.width, model.world.cf.height)
             it.shader.safeSetUniform("u_showLayer", showLayer.value.toInt())
             it.shader.safeSetUniform("gen_length", model.cf.genLen)
+            it.shader.safeSetUniform("w", model.world.cf.width)
+            it.shader.safeSetUniform("h", model.world.cf.height)
 
             it.draw(tex[0], 0f, 0f, stage.width, stage.height)
             //it.draw(texAge, 5f, stage.height/2, model.max.toFloat(), 1f)
             it.shader = null
+
+//
+//            it.draw(testDrawer, 10f, 10f)
+//            it.draw(test2Drawer, 20f, 20f)
+//            it.draw(test3Drawer, 150f, 150f)
 
             //it.draw(texAge2, 0f, 0f, stage.width/2, stage.height/2)
             //test.draw(it)

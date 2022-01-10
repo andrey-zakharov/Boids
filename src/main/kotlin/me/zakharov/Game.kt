@@ -16,22 +16,22 @@ import ktx.async.KtxAsync
 import me.apemanzilla.ktcl.CLDevice
 import me.apemanzilla.ktcl.CLException
 import me.apemanzilla.ktcl.cl10.*
-import me.zakharov.me.zakharov.IGameModel
-import me.zakharov.me.zakharov.PrimaryGameModel
+import me.zakharov.Const.SKIN_LIBGDX_UI
 import me.zakharov.me.zakharov.ants.AntsScreen
 import me.zakharov.me.zakharov.ants.TestScreen
-import me.zakharov.me.zakharov.replicators.ReplicatorsScreen
-import me.zakharov.me.zakharov.space.Space
 import me.zakharov.me.zakharov.space.SpaceScreen
+import me.zakharov.replicators.ReplicatorsScreen
 import me.zakharov.utils.SimpleGameScreen
 import me.zakharov.utils.formatBytes
 
 val d: (m: Any?) -> Unit = ::println
 val warn: (m: Any?) -> Unit = ::println
 
+
 class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
     val batch by lazy { SpriteBatch() }
     val uiSkin by lazy { Skin(Gdx.files.internal("skins/comic/comic-ui.json")) }
+    val gdxSkin by lazy { Skin(Gdx.files.internal(SKIN_LIBGDX_UI)) }
     val font by lazy { BitmapFont() }
     val model: IGameModel by lazy { PrimaryGameModel() }
 
@@ -83,23 +83,23 @@ class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
     private val h by lazy { Gdx.app.graphics.height }
 
 
-    private val inputProcessor = object: KtxInputAdapter {
+    private val inputProcessor by lazy { object: KtxInputAdapter {
         override fun keyUp(keycode: Int): Boolean = when (keycode) {
             Input.Keys.F1 -> setScreen<AntsScreen>() == Unit
             Input.Keys.F2 -> setScreen<ReplicatorsScreen>() == Unit
             Input.Keys.F3 -> setScreen<SimpleGameScreen>() == Unit
             Input.Keys.F4 -> setScreen<SpaceScreen>() == Unit
             Input.Keys.F12 -> {
-                (currentScreen as? Resettable)?.let { it.reset() }
+                (currentScreen as? Resettable)?.reset()
                 screens
                 true
             } // reset
             else -> false // { d(keycode); super.keyUp(keycode) }
         }
-    }
+    } }
 
-    private val inputBus = InputMultiplexer().apply {
-        addProcessor(inputProcessor)
+    private val inputBus by lazy {
+        InputMultiplexer().apply { addProcessor(inputProcessor) }
     }
 
     override fun create() {
@@ -123,6 +123,8 @@ class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
         d("Created Game: $durMs ms")
     }
 
+    fun accept(cf: me.zakharov.replicators.model.WorldConf) {}
+
     override fun dispose() {
         batch.dispose()
         font.dispose()
@@ -135,8 +137,6 @@ interface Resettable {
 }
 
 fun main() {
-
-
     try {
         println("Found platforms = ${getPlatforms()}")
         assert(getPlatforms().isNotEmpty())

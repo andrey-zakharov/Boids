@@ -1,4 +1,4 @@
-package me.zakharov.me.zakharov.replicators.model
+package me.zakharov.replicators.model
 
 import com.badlogic.gdx.math.Vector2
 import me.zakharov.Const.FLOAT_SIZE
@@ -59,17 +59,6 @@ enum class COMMAND(final: Boolean = false, block: ByteBuffer.(state: Bacteria) -
         s.memLoad(memidx.toByte())
     }),
     save_global_value( false, { s -> }),
-}
-
-
-data class Cell(
-    var light: Float = 0f,
-    var minerals: Float = 0f,
-    var moisture: Float = 0f,
-) {
-    companion object {
-        val bytesize = FLOAT_SIZE * 3
-    }
 }
 
 

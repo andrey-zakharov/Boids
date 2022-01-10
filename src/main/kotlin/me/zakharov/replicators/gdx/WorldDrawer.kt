@@ -5,8 +5,8 @@ import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.Batch
 import com.badlogic.gdx.graphics.glutils.ShaderProgram
 import com.badlogic.gdx.scenes.scene2d.Actor
-import me.zakharov.me.zakharov.replicators.model.MAX_ENERGY
-import me.zakharov.me.zakharov.replicators.model.WorldSystem
+import me.zakharov.replicators.model.MAX_ENERGY
+import me.zakharov.replicators.model.WorldSystem
 import me.zakharov.utils.*
 import me.zakharov.utils.ByteTextureData
 import me.zakharov.utils.FloatTextureData
@@ -37,6 +37,9 @@ class WorldDrawer(private val model: WorldSystem) : Actor() {
             load(cells)
         }
     }
+    private val obstacleTex by lazy {
+        Texture(Gdx.files.internal("tex/obstacle.jpg"))
+    }
     private val shaderProgram = ShaderProgram(
         Gdx.files.internal("shaders/genoms/ground.vert"),
         Gdx.files.internal("shaders/genoms/ground.frag")
@@ -60,6 +63,8 @@ class WorldDrawer(private val model: WorldSystem) : Actor() {
         super.draw(batch, parentAlpha)
         batch?.let {
             it.shader = shaderProgram
+            obstacleTex.bind(2)
+            it.shader.safeSetUniform("u_obstacle", 2)
 
             texCells.bind(1)
             it.shader.safeSetUniform("u_cells", 1)

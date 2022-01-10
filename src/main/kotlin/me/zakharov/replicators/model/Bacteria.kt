@@ -1,4 +1,4 @@
-package me.zakharov.me.zakharov.replicators.model
+package me.zakharov.replicators.model
 
 import com.badlogic.gdx.math.Vector2
 import java.io.PrintStream
@@ -23,8 +23,6 @@ data class Bacteria(
 
     val genStr by lazy {
 
-        // cycle detect
-        val visited = BitSet(GEN_LENGTH)
         // current command is byte number
         // we need current index in command list
         // eof = \0 \0? no, reaching 0 cc again.
@@ -32,16 +30,14 @@ data class Bacteria(
         //while(genr.isNotEmpty()) {
         //}
         val bb = ByteBuffer.wrap(gen)
-        val res = mutableListOf<String>()
+        val res = TreeMap<Int, String>()
 
         while(bb.hasRemaining() && res.size < gen.size) {
             val idx = bb.position()
 
-            if ( visited[idx] ) { // cycle detected
-                res.add(res.size, "CYCLE DETECTED")
+            if ( res.containsKey(idx) ) { // cycle detected
+                res[res.size] = "CYCLE DETECTED"
                 break
-            } else {
-                visited[idx] = true
             }
 
             val cmd = commands.values()[bb.get() % commands.values().size]
@@ -54,29 +50,29 @@ data class Bacteria(
             when(cmd) {
                 commands.Jmp -> {
                     val next_command = cmd.args.first()
-                    res.add("$idx jmp to $next_command")
+                    res[idx] = "$idx jmp to $next_command"
                     if ( next_command == 0x0.toByte()) break
                     bb.position(next_command.toInt())
 
                 }
                 commands.MoveRandom -> {
-                    res.add("$idx move random")
+                    res[idx] = "$idx move random"
                 }
                 commands.Move -> {
                     val dir = Dirs.values()[cmd.args.first().toInt() /*% Dirs.values().size*/]
-                    res.add("$idx move ${dir}")
+                    res[idx] = "$idx move $dir"
                 }
                 commands.EatLight -> {
-                    res.add("$idx eat light")
+                    res[idx] = "$idx eat light"
                 }
                 commands.Harvest -> {
-                    res.add("$idx harvest")
+                    res[idx] = "$idx harvest"
                 }
                 commands.EatBacteria -> {
                     val dir = Dirs.values()[cmd.args.first().toInt() /*% Dirs.values().size*/]
-                    res.add("$idx eat from $dir")
+                    res[idx] = "$idx eat from $dir"
                 }
-                else -> res.add("${bb.position()} UNKNOWN $cmd")
+                else -> res[idx] = "${bb.position()} UNKNOWN $cmd"
 
             }
         }
