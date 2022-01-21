@@ -69,7 +69,7 @@ class ReplicatorsScreen(private val batch: Batch?,
     companion object {
         private val model by lazy {
             BacteriaSystem(
-                BacteriaConf(maxAge = 1000), WorldSystem(WorldConf(width = 30, height = 30))
+                BacteriaConf(maxAge = 1000), WorldSystem(WorldConf(width = 100, height = 100))
             )
         }
         internal val BoundingBox by lazy { Coords(model.world.cf.width, model.world.cf.height) }

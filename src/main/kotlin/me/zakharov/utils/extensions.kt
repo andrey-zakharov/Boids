@@ -1,7 +1,6 @@
 package me.zakharov.utils
 
 import com.badlogic.gdx.scenes.scene2d.ui.Button
-import com.sun.xml.internal.messaging.saaj.util.ByteOutputStream
 import java.io.OutputStreamWriter
 import java.io.PrintStream
 import java.nio.ByteBuffer
@@ -16,7 +15,7 @@ fun ByteBuffer.print() {
 }
 
 fun ByteArray.print(): String {
-    val r = ByteOutputStream()
+    val r = OutToStringBuilderStream()
     val o = PrintStream(r)
     print(o)
     return r.toString()

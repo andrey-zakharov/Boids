@@ -120,12 +120,3 @@ class Pheromones(
         println(buff.toStr)
     }
 }
-
-class OutToStringBuilderStream : OutputStream() {
-    private val sb = StringBuilder()
-    override fun write(b: Int) {
-        sb.append(b.toChar())
-    }
-
-    val toStr get() = sb.toString()
-}

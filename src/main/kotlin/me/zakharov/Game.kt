@@ -141,6 +141,9 @@ fun main() {
         println("Found platforms = ${getPlatforms()}")
         assert(getPlatforms().isNotEmpty())
         val plat = getPlatforms()[0]
+        println("${plat.name} ${plat.version} ${plat.vendor} ${plat.profile}")
+        println(plat.getDevices())
+
         plat.getDefaultDevice()?.let {
             println("extensions ${it.extensions.joinToString("\n - ")}")
             println("globalMemSize=${it.globalMemSize.toLong().formatBytes()}")

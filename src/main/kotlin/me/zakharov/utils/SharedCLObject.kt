@@ -4,6 +4,7 @@ import me.apemanzilla.ktcl.CLBuffer
 import me.apemanzilla.ktcl.CLCommandQueue
 import me.apemanzilla.ktcl.CLContext
 import me.apemanzilla.ktcl.cl10.*
+import me.apemanzilla.ktcl.cl12.HostAccess
 import me.zakharov.Const
 import me.zakharov.getTypeSize
 import org.lwjgl.BufferUtils
@@ -43,12 +44,12 @@ class Shared<T: Buffer> {
     fun attach(ctx: CLContext) {
         remoteBuff = ctx.createBuffer(_buff, mf)
     }
-    constructor(size: Int, memFlag: MemFlag = KernelAccess.ReadWrite) {
+    constructor(size: Int, memFlag: MemFlag = KernelAccess.ReadWrite + HostMode.UseHostPtr) {
         _buff = BufferUtils.createByteBuffer(size * getTypeSize<Class<T>>())
         this.mf = memFlag
     }
 
-    constructor(buff: ByteBuffer, memFlag: MemFlag = KernelAccess.ReadWrite) {
+    constructor(buff: ByteBuffer, memFlag: MemFlag = KernelAccess.ReadWrite + HostMode.UseHostPtr) {
         _buff = buff
         this.mf = memFlag
     }

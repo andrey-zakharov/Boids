@@ -113,7 +113,7 @@ class BacteriaSystem(val cf: BacteriaConf, val world: WorldSystem): CompositeSys
     }
 
     operator fun set(i: Int, b: Bacteria) {
-        println("setting $i @ ${b.pos}")
+//        println("setting $i @ ${b.pos}")
          assert ( i < max )
         val x = b.pos.x.roundToInt()
         val y = b.pos.y.roundToInt()

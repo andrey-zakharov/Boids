@@ -7,18 +7,15 @@
 plugins {
     // Apply the application plugin to add support for building a CLI application.
     application
-    kotlin("jvm") version "1.5.10"
+    kotlin("jvm") version "1.6.10"
     id("com.stehno.natives") version "0.3.1"
 }
 
 repositories {
-    // Use jcenter for resolving dependencies.
-    // You can declare any Maven/Ivy/file repository here.
-    jcenter()
     maven("https://oss.sonatype.org/content/repositories/snapshots/")
     mavenCentral()
 }
-val lwjglNatives = "natives-windows"
+val lwjglNatives = "natives-linux"
 val lwjglVersion = "3.2.3"
 val ktxVersion = "1.10.0-b1"
 val gdxVersion = "1.10.0"
@@ -26,7 +23,7 @@ val gdxVersion = "1.10.0"
 dependencies {
     implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
-    implementation("org.jetbrains.kotlinx", "kotlinx-coroutines-core", "1.5.0")
+    implementation("org.jetbrains.kotlinx", "kotlinx-coroutines-core", "1.6.0")
 
     implementation(files("libs/ktcl-0.3.1.jar"))
 
