@@ -89,7 +89,7 @@ void main() {
         //out_color.g = texelFetch(u_gen, ivec2(genIndex, index), 0).r % 6 / 6.;
         //out_color.g = float(genIndex) / float(genSize.x);
         //out_color.b = withinCell.y;
-        out_color = EncodeFloatRGBA(texelFetch(u_gen, ivec2(genIndex, index), 0).r / 2.0);
+        out_color = EncodeFloatRGBA(texelFetch(u_gen, ivec2(0, index), 0).r);
         out_color.a = 1.0;
         //texelFetch(u_gen, ivec2(v_texCoords.y * gen_size.y, index), 0);
 

@@ -1,9 +1,6 @@
 #ifndef max_age
     #define max_age 10000.
 #endif
-#ifndef gen_len
-    #define gen_len 80
-#endif
 
 #ifndef max_energy
     #define max_energy 100.

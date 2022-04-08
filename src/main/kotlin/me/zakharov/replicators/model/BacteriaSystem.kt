@@ -42,7 +42,7 @@ enum class Dirs(val lbl: String) {
 
 data class BacteriaConf(
     val maxAge: Int = 1000,
-    val genLen: Int = 80,
+    val genLen: Int = 10,
 )
 
 abstract class CompositeSystem() : IHeadlessActor {

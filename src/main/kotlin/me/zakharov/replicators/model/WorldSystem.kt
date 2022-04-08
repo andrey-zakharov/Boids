@@ -48,12 +48,6 @@ class WorldSystem(val cf: WorldConf, fieldInitDrawer: ((Matrix2d<Byte>) -> Unit)
                 this[i, i] = GroundType.obstacle.ordinal.toByte()
             }
             if ( cf.width < 5 ) return@run
-            //test case #1
-            val r = min(10, cf.height-1)
-            for (x in 0 until min(15, cf.width)) {
-                this[x, r] = GroundType.obstacle.ordinal.toByte()
-            }
-
         }
     }
 /*        override fun get(x: Int, y: Int): Cell {
