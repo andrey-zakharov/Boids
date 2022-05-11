@@ -123,8 +123,6 @@ class Game(private val device: CLDevice): KtxGame<KtxScreen>() {
         d("Created Game: $durMs ms")
     }
 
-    fun accept(cf: me.zakharov.replicators.model.WorldConf) {}
-
     override fun dispose() {
         batch.dispose()
         font.dispose()
@@ -164,7 +162,8 @@ fun main() {
         }
 
     } catch (e: CLException) {
-        System.err.println(e)
+        //System.err.println(e)
+        println("Found platforms = ${getPlatforms()}")
         System.err.println(e.stackTraceToString())
         //return 1
         //error("CL exception", e)

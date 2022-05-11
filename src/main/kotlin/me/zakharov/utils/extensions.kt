@@ -1,7 +1,5 @@
 package me.zakharov.utils
 
-import com.badlogic.gdx.scenes.scene2d.ui.Button
-import java.io.OutputStreamWriter
 import java.io.PrintStream
 import java.nio.ByteBuffer
 import java.nio.FloatBuffer
@@ -12,13 +10,6 @@ fun ByteBuffer.print() {
         print("%02x".format(this[i]))
     }
     println()
-}
-
-fun ByteArray.print(): String {
-    val r = OutToStringBuilderStream()
-    val o = PrintStream(r)
-    print(o)
-    return r.toString()
 }
 
 fun ByteArray.print(out: PrintStream = System.out) {
