@@ -1,7 +1,6 @@
 plugins {
-    // Apply the application plugin to add support for building a CLI application.
     application
-    kotlin("jvm") version "1.6.10"
+    kotlin("jvm") version Versions.kotlinVersion
     id("com.stehno.natives") version "0.3.1"
 }
 
@@ -10,8 +9,7 @@ repositories {
     mavenCentral()
     maven("https://jitpack.io")
 }
-val lwjglNatives = "natives-linux"
-val lwjglVersion = "3.2.3"
+
 val ktxVersion = "1.10.0-b1"
 val gdxVersion = "1.10.0"
 
@@ -23,14 +21,17 @@ dependencies {
 
     implementation(files("libs/ktcl-0.3.1.jar"))
 
-    implementation(platform("org.lwjgl:lwjgl-bom:$lwjglVersion"))
+    implementation(DepsJvm.lwjgl())
+    implementation(DepsJvm.lwjgl("glfw"))
+    implementation(DepsJvm.lwjgl("opencl"))
+    implementation(DepsJvm.lwjgl("opengl"))
+    implementation(DepsJvm.lwjgl("stb"))
 
-    implementation("org.lwjgl", "lwjgl")
-    implementation("org.lwjgl", "lwjgl-glfw")
-    implementation("org.lwjgl", "lwjgl-openal")
-    implementation("org.lwjgl", "lwjgl-opencl")
-    implementation("org.lwjgl", "lwjgl-opengl")
-    implementation("org.lwjgl", "lwjgl-stb")
+    runtimeOnly(DepsJvm.lwjglNatives())
+    runtimeOnly(DepsJvm.lwjglNatives("stb"))
+    runtimeOnly(DepsJvm.lwjglNatives("glfw"))
+    runtimeOnly(DepsJvm.lwjglNatives("opengl"))
+
 
     implementation("io.github.libktx", "ktx-app", ktxVersion)
     implementation("io.github.libktx", "ktx-async", ktxVersion)
@@ -38,11 +39,6 @@ dependencies {
     implementation("com.badlogicgames.gdx", "gdx", gdxVersion)
     implementation("com.badlogicgames.gdx", "gdx-backend-lwjgl3", gdxVersion)
     api("com.badlogicgames.gdx","gdx-platform", gdxVersion, classifier = "natives-desktop")
-    runtimeOnly("org.lwjgl", "lwjgl", classifier = lwjglNatives)
-    runtimeOnly("org.lwjgl", "lwjgl-glfw", classifier = lwjglNatives)
-    runtimeOnly("org.lwjgl", "lwjgl-openal", classifier = lwjglNatives)
-    runtimeOnly("org.lwjgl", "lwjgl-opengl", classifier = lwjglNatives)
-    runtimeOnly("org.lwjgl", "lwjgl-stb", classifier = lwjglNatives)
 
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit")
@@ -52,11 +48,12 @@ dependencies {
     testImplementation("com.badlogicgames.gdx", "gdx-backend-headless", gdxVersion)
 //    testImplementation("com.badlogicgames.gdx", "gdx-backend-lwjgl3", gdxVersion)
     testImplementation("com.badlogicgames.gdx","gdx-platform", gdxVersion, classifier = "natives-desktop")
-    testRuntimeOnly("org.lwjgl", "lwjgl", classifier = lwjglNatives)
-    testRuntimeOnly("org.lwjgl", "lwjgl-glfw", classifier = lwjglNatives)
-    testRuntimeOnly("org.lwjgl", "lwjgl-openal", classifier = lwjglNatives)
-    testRuntimeOnly("org.lwjgl", "lwjgl-opengl", classifier = lwjglNatives)
-    testRuntimeOnly("org.lwjgl", "lwjgl-stb", classifier = lwjglNatives)
+
+    testRuntimeOnly(DepsJvm.lwjglNatives())
+    testRuntimeOnly(DepsJvm.lwjglNatives("stb"))
+    testRuntimeOnly(DepsJvm.lwjglNatives("glfw"))
+    testRuntimeOnly(DepsJvm.lwjglNatives("opengl"))
+    testRuntimeOnly(DepsJvm.lwjglNatives("openal"))
     //testImplementation("com.badlogicgames.gdx", "gdx-box2d", gdxVersion)
     //testImplementation("com.badlogicgames.gdx","gdx-box2d-platform", gdxVersion, classifier = "natives-desktop")
 }
